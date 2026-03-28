@@ -105,6 +105,33 @@ python crawl_status.py
 python detail_coverage_report.py
 ```
 
+## 构建搜索清洗数据
+
+在详情还持续抓取时，先使用独立派生表做非破坏性清洗，不直接修改 `auction_records` 原始数据：
+
+```bash
+python build_search_dataset.py
+```
+
+这个脚本会在 `porcelain_auction.db` 里重建：
+
+- `search_records`：搜索用派生表
+- `search_records_ready`：默认过滤掉明显图录/书籍/非瓷器书画噪音后的视图
+
+当前会做的处理包括：
+
+- 规范 `auction_date` 为 `YYYY-MM-DD`
+- 归一化 `dynasty`
+- 从标题/描述中补充 `vessel_type`、`glaze_color`、`motif`
+- 标记明显不适合进入搜索结果的记录，而不是删除原始数据
+- 生成 `quality_score`，方便后续前端做排序或低质量结果降权
+
+建议节奏：
+
+1. 继续跑 `detail`
+2. 每隔一段时间执行一次 `python build_search_dataset.py`
+3. 后续前端优先查询 `search_records_ready`
+
 ## Git 约定
 
 以下内容不会提交到 Git：
@@ -113,4 +140,4 @@ python detail_coverage_report.py
 - `porcelain_auction.db`
 - `images/`
 
-源码仓库只保留脚本和文档。
+源码仓库只保留脚本和文档。搜索相关的清洗结果写回本地 SQLite，不进 Git。
