@@ -840,7 +840,7 @@
         record.raw_name,
         record.normalized_dynasty,
         record.vessel_type,
-        record.glaze_color,
+        Array.isArray(record.glaze_color) ? record.glaze_color.join(" ") : record.glaze_color,
         record.motif,
         record.description,
         record.provenance_raw,
@@ -926,7 +926,11 @@
       const chips = [];
       if (record.normalized_dynasty) chips.push(`<span class="chip">${escapeHtml(record.normalized_dynasty)}</span>`);
       if (record.vessel_type) chips.push(`<span class="chip">${escapeHtml(record.vessel_type)}</span>`);
-      if (record.glaze_color) chips.push(`<span class="chip">${escapeHtml(record.glaze_color)}</span>`);
+      if (Array.isArray(record.glaze_color)) {
+        record.glaze_color.forEach(tag => chips.push(`<span class="chip">${escapeHtml(tag)}</span>`));
+      } else if (record.glaze_color) {
+        chips.push(`<span class="chip">${escapeHtml(record.glaze_color)}</span>`);
+      }
       if (record.motif) chips.push(`<span class="chip">${escapeHtml(record.motif)}</span>`);
       if (record.provenance_tags.length) chips.push(`<span class="chip gold">${escapeHtml(record.provenance_tags.map(tag => labelTag("provenance", tag)).join(" · "))}</span>`);
       if (record.condition_tags.length) chips.push(`<span class="chip jade">${escapeHtml(record.condition_tags.map(tag => labelTag("condition", tag)).join(" · "))}</span>`);
@@ -1020,7 +1024,7 @@
         <div class="detail-grid">
           ${metric("朝代", record.normalized_dynasty)}
           ${metric("器型", record.vessel_type)}
-          ${metric("釉色", record.glaze_color)}
+          ${metric("釉色", Array.isArray(record.glaze_color) ? record.glaze_color.join(" · ") : record.glaze_color)}
           ${metric("纹饰", record.motif)}
           ${metric("成交价", fmtPrice(record.sold_price))}
           ${metric("日期", fmtDate(record.normalized_auction_date))}

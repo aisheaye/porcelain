@@ -55,9 +55,16 @@ SECTIONS = {
         ORDER BY s.quality_score DESC, s.normalized_auction_date DESC, s.artron_id
         LIMIT ?
     """,
+    "grouped_lots": """
+        SELECT artron_id, search_title, lot_group_tag, piece_count, sold_price, glaze_color
+        FROM search_records_ready
+        WHERE lot_group_tag IS NOT NULL
+        ORDER BY normalized_auction_date DESC, quality_score DESC, artron_id
+        LIMIT ?
+    """,
 }
 
-DEFAULT_SECTIONS = ["excluded", "top_ready", "missing_dynasty", "missing_features", "provenance", "condition"]
+DEFAULT_SECTIONS = ["excluded", "top_ready", "missing_dynasty", "missing_features", "provenance", "condition", "grouped_lots"]
 
 
 def parse_args():

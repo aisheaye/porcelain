@@ -26,13 +26,15 @@ VESSEL_TYPES = [
 ]
 
 GLAZE_TERMS = [
-    "青花",
-    "釉里红",
     "青花釉里红",
+    "釉里红",
+    "青花",
     "斗彩",
     "五彩",
     "粉彩",
     "珐琅彩",
+    "素三彩",
+    "三彩",
     "单色釉",
     "颜色釉",
     "祭红",
@@ -68,7 +70,7 @@ QING_REIGNS = ["顺治", "康熙", "雍正", "乾隆", "嘉庆", "道光", "咸�
 REFERENCE_KEYWORDS = [
     "图录",
     "拍卖图录",
-    "瓷器史",
+    "瓷器志",
     "瓷器鉴定",
     "鉴定",
     "中国陶瓷",
@@ -79,10 +81,10 @@ REFERENCE_KEYWORDS = [
     "精装",
     "毛装",
     "全一册",
-    "全1册",
+    "共二册",
     "一册",
     "册",
-    "著",
+    "辑",
     "编著",
     "出版社",
     "出版",
@@ -104,25 +106,11 @@ NON_PORCELAIN_KEYWORDS = [
     "信札",
 ]
 
-CERAMIC_KEYWORDS = [
-    "瓷",
-    "瓷器",
-    "窑",
-    "釉",
-    "盘",
-    "碗",
-    "瓶",
-    "罐",
-    "尊",
-    "洗",
-    "杯",
-    "盏",
-]
+CERAMIC_KEYWORDS = ["瓷", "瓷器", "窑", "釉", "盘", "碗", "瓶", "罐", "壶", "洗", "杯", "尊"]
 
 PROVENANCE_TAG_RULES = [
     ("museum_collection", ["博物馆收藏", "博物馆旧藏", "馆藏"]),
-    ("family_collection", ["家族旧藏", "家族珍藏"]),
-    ("private_collection", ["私人收藏", "私人旧藏", "藏家旧藏", "旧藏"]),
+    ("private_collection", ["私人收藏", "私人旧藏", "家族旧藏", "家族珍藏", "藏家旧藏", "旧藏"]),
     ("estate_collection", ["遗产", "遗藏"]),
     ("important_collector", ["玫茵堂", "戴维德", "E&J FRANKEL", "Frankel", "Bluett", "J.J. Lally", "Eskenazi"]),
     ("auction_history", ["佳士得", "苏富比", "嘉德", "保利", "西泠", "匡时"]),
@@ -157,6 +145,21 @@ PROVENANCE_NOISE_PATTERNS = [
     r"颇为精致",
 ]
 
+GENERIC_PROVENANCE_WORDS = [
+    "私人",
+    "家族",
+    "华侨",
+    "香港",
+    "东南亚",
+    "海外",
+    "欧洲",
+    "日本",
+    "藏家",
+    "旧藏",
+    "收藏",
+    "珍藏",
+]
+
 CONDITION_TAG_RULES = [
     ("excellent", ["品相完美", "品相如新", "保存极佳", "全品", "完好如初"]),
     ("good", ["品相良好", "保存良好", "品相完好", "品相较好"]),
@@ -165,6 +168,26 @@ CONDITION_TAG_RULES = [
     ("chip", ["磕", "崩", "飞皮", "小缺", "缺口"]),
     ("crack", ["冲线", "裂", "鸡爪纹", "惊釉"]),
 ]
+
+LOT_GROUP_PATTERNS = [
+    ("pair", 2, [r"一对", r"成对", r"对瓶", r"对杯", r"对碗", r"对盘", r"对罐", r"对洗", r"对炉"]),
+    ("two_items", 2, [r"两件", r"二件", r"2件", r"二只", r"两只", r"二个", r"两个"]),
+    ("set", None, [r"一套", r"成套", r"套组", r"组器", r"套"]),
+]
+
+CHINESE_NUMERALS = {
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
 
 
 def clean_text(value):
@@ -222,6 +245,17 @@ def first_match(texts, terms):
     return None
 
 
+def collect_matches(text, terms):
+    if not text:
+        return []
+    return [term for term in terms if term in text]
+
+
+def join_tags(values):
+    deduped = [item for item in dict.fromkeys(values) if item]
+    return "|".join(deduped) or None
+
+
 def classify_record(name, description):
     if contains_any(name, NON_PORCELAIN_KEYWORDS) and not contains_any(name, CERAMIC_KEYWORDS):
         return 1, "non_porcelain_art"
@@ -229,7 +263,7 @@ def classify_record(name, description):
         return 1, "reference_material"
     if "《" in (name or "") and contains_any(name, REFERENCE_KEYWORDS):
         return 1, "reference_material"
-    if re.search(r"[上中下]册|全\d+册|套装|全套", name or ""):
+    if re.search(r"[上中下]册|\d+册|套装|全套", name or ""):
         return 1, "reference_material"
     if not contains_any(name, CERAMIC_KEYWORDS) and contains_any(description, REFERENCE_KEYWORDS):
         return 1, "reference_material"
@@ -251,16 +285,6 @@ def normalize_provenance(value, description):
     return text
 
 
-def derive_provenance_tags(text):
-    if not text:
-        return None
-    tags = []
-    for tag, keywords in PROVENANCE_TAG_RULES:
-        if contains_any(text, keywords):
-            tags.append(tag)
-    return "|".join(dict.fromkeys(tags)) or None
-
-
 def derive_provenance_entities(text):
     if not text:
         return None
@@ -268,15 +292,37 @@ def derive_provenance_entities(text):
     for pattern in PROVENANCE_ENTITY_PATTERNS:
         for match in re.findall(pattern, text):
             item = clean_text(match)
-            if not item:
-                continue
-            if len(item) < 3:
-                continue
-            if not contains_any(item, PROVENANCE_SIGNAL_KEYWORDS) and not re.search(r"[A-Z]", item):
+            if not item or len(item) < 3:
                 continue
             found.append(item)
     deduped = list(dict.fromkeys(found))
-    return "|".join(deduped[:8]) or None
+    return join_tags(deduped[:8])
+
+
+def is_generic_private_provenance(text, entities):
+    if not text:
+        return False
+    if entities:
+        return False
+    if contains_any(text, ["博物馆", "文物公司", "基金会", "佳士得", "苏富比", "嘉德", "保利", "著录", "展览"]):
+        return False
+    stripped = text
+    for word in GENERIC_PROVENANCE_WORDS:
+        stripped = stripped.replace(word, "")
+    stripped = re.sub(r"[，,、；;:：\s]", "", stripped)
+    return len(stripped) <= 4
+
+
+def derive_provenance_tags(text, entities):
+    if not text:
+        return None
+    tags = []
+    for tag, keywords in PROVENANCE_TAG_RULES:
+        if contains_any(text, keywords):
+            tags.append(tag)
+    if tags == ["private_collection"] and is_generic_private_provenance(text, entities):
+        return None
+    return join_tags(tags)
 
 
 def normalize_condition(value, description):
@@ -286,8 +332,8 @@ def normalize_condition(value, description):
         match = re.search(r"(?:品相|品相报告|保存状况|瑕疵|有无瑕疵)[：:\s]*([^。；;\n]{4,200})", description)
         text = clean_text(match.group(1)) if match else None
     if text:
-        text = re.split(r"(?:来源|说明|【来源】|【说明】|备注)[:：\s]*", text)[0]
-        text = re.sub(r"^[】\]\s:：]+", "", text)
+        text = re.split(r"(?:来源|说明|【来源】|【说明】|备注)[：:\s]*", text)[0]
+        text = re.sub(r"^[【[]?\s*[:：\]]+", "", text)
     text = clean_text(text)
     if text and any(term in text for term in signal_terms):
         return text
@@ -301,10 +347,55 @@ def derive_condition_tags(text):
     for tag, keywords in CONDITION_TAG_RULES:
         if contains_any(text, keywords):
             tags.append(tag)
-    return "|".join(dict.fromkeys(tags)) or None
+    return join_tags(tags)
 
 
-def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif):
+def derive_glaze_tags(raw_value, texts):
+    tags = []
+    for text in texts:
+        tags.extend(collect_matches(text, GLAZE_TERMS))
+    if not tags and raw_value:
+        tags.extend(collect_matches(raw_value, GLAZE_TERMS))
+        if not tags:
+            fallback = clean_text(raw_value)
+            return fallback
+    return join_tags(tags)
+
+
+def parse_piece_count(raw):
+    if not raw:
+        return None
+    raw = clean_text(raw) or ""
+    if raw.isdigit():
+        return int(raw)
+    if len(raw) == 1:
+        return CHINESE_NUMERALS.get(raw)
+    if raw == "十":
+        return 10
+    return None
+
+
+def derive_lot_group(name, description):
+    text = " ".join(part for part in [name, description] if part)
+    for tag, piece_count, patterns in LOT_GROUP_PATTERNS:
+        if any(re.search(pattern, text) for pattern in patterns):
+            return tag, piece_count
+    match = re.search(r"([一二两三四五六七八九十\d]+)件", text)
+    if match:
+        piece_count = parse_piece_count(match.group(1))
+        if piece_count == 2:
+            return "two_items", 2
+        return "multi_piece", piece_count
+    match = re.search(r"([一二两三四五六七八九十\d]+)只", text)
+    if match:
+        piece_count = parse_piece_count(match.group(1))
+        if piece_count == 2:
+            return "two_items", 2
+        return "multi_piece", piece_count
+    return None, None
+
+
+def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif, provenance_tags, condition_tags):
     score = 0
     if row["name"]:
         score += 3
@@ -316,7 +407,7 @@ def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_c
         score += 2
     if row["sold_price"] is not None:
         score += 1
-    if row["provenance"]:
+    if provenance_tags:
         score += 2
     description = row["description"] or ""
     if len(description) >= 20:
@@ -326,6 +417,8 @@ def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_c
     if glaze_color:
         score += 1
     if motif:
+        score += 1
+    if condition_tags:
         score += 1
     return score
 
@@ -354,6 +447,8 @@ def init_search_table(conn):
             provenance_entities TEXT,
             condition_raw TEXT,
             condition_tags TEXT,
+            lot_group_tag TEXT,
+            piece_count INTEGER,
             image_url TEXT,
             source_url TEXT,
             keyword TEXT,
@@ -369,6 +464,7 @@ def init_search_table(conn):
         CREATE INDEX idx_search_records_price ON search_records(sold_price);
         CREATE INDEX idx_search_records_prov_tags ON search_records(provenance_tags);
         CREATE INDEX idx_search_records_condition_tags ON search_records(condition_tags);
+        CREATE INDEX idx_search_records_lot_group ON search_records(lot_group_tag);
 
         CREATE VIEW search_records_ready AS
         SELECT *
@@ -397,19 +493,28 @@ def rebuild_search_dataset(conn):
         normalized_date = normalize_auction_date(row["auction_date"])
         normalized_dynasty = normalize_dynasty(row["dynasty"], f"{row['name'] or ''} {row['description'] or ''}")
 
-        fallback_text = " ".join(part for part in [row["name"], row["description"]] if part)
         lookup_texts = [row["name"], row["description"]]
         vessel_type = clean_text(row["vessel_type"]) or first_match(lookup_texts, VESSEL_TYPES)
-        glaze_color = clean_text(row["glaze_color"]) or first_match(lookup_texts, GLAZE_TERMS)
+        glaze_color = derive_glaze_tags(row["glaze_color"], lookup_texts)
         motif = clean_text(row["motif"]) or first_match(lookup_texts, MOTIF_TERMS)
         provenance_raw = normalize_provenance(row["provenance"], row["description"])
-        provenance_tags = derive_provenance_tags(provenance_raw)
         provenance_entities = derive_provenance_entities(provenance_raw)
+        provenance_tags = derive_provenance_tags(provenance_raw, provenance_entities)
         condition_raw = normalize_condition(row["condition_info"], row["description"])
         condition_tags = derive_condition_tags(condition_raw)
+        lot_group_tag, piece_count = derive_lot_group(row["name"], row["description"])
 
         is_excluded, exclusion_reason = classify_record(row["name"], row["description"])
-        score = quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif)
+        score = quality_score(
+            row,
+            normalized_date,
+            normalized_dynasty,
+            vessel_type,
+            glaze_color,
+            motif,
+            provenance_tags,
+            condition_tags,
+        )
         auction_year = int(normalized_date[:4]) if normalized_date else None
 
         payload.append(
@@ -430,6 +535,8 @@ def rebuild_search_dataset(conn):
                 provenance_entities,
                 condition_raw,
                 condition_tags,
+                lot_group_tag,
+                piece_count,
                 clean_text(row["image_url"]),
                 clean_text(row["source_url"]),
                 clean_text(row["keyword"]),
@@ -445,9 +552,10 @@ def rebuild_search_dataset(conn):
             artron_id, raw_name, search_title, normalized_dynasty, normalized_auction_date,
             auction_year, lot_number, sold_price, vessel_type, glaze_color, motif,
             provenance_raw, provenance_tags, provenance_entities, condition_raw, condition_tags,
-            image_url, source_url, keyword, quality_score, is_excluded, exclusion_reason
+            lot_group_tag, piece_count, image_url, source_url, keyword, quality_score,
+            is_excluded, exclusion_reason
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )
@@ -465,6 +573,8 @@ def rebuild_search_dataset(conn):
         "with_provenance_tags": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE provenance_tags IS NOT NULL").fetchone()[0],
         "with_condition": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE condition_raw IS NOT NULL").fetchone()[0],
         "with_condition_tags": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE condition_tags IS NOT NULL").fetchone()[0],
+        "with_lot_group": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE lot_group_tag IS NOT NULL").fetchone()[0],
+        "with_multi_glaze": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE glaze_color LIKE '%|%'").fetchone()[0],
     }
     return stats
 

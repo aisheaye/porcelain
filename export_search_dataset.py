@@ -35,6 +35,8 @@ def main():
             s.provenance_entities,
             s.condition_raw,
             s.condition_tags,
+            s.lot_group_tag,
+            s.piece_count,
             s.image_url,
             s.source_url,
             s.keyword,
@@ -55,8 +57,10 @@ def main():
     records = []
     dynasty_counts = {}
     vessel_counts = {}
+    glaze_counts = {}
     provenance_counts = {}
     condition_counts = {}
+    lot_group_counts = {}
 
     for row in rows:
         item = {
@@ -69,13 +73,15 @@ def main():
             "lot_number": row["lot_number"],
             "sold_price": row["sold_price"],
             "vessel_type": row["vessel_type"],
-            "glaze_color": row["glaze_color"],
+            "glaze_color": split_tags(row["glaze_color"]),
             "motif": row["motif"],
             "provenance_raw": row["provenance_raw"],
             "provenance_tags": split_tags(row["provenance_tags"]),
             "provenance_entities": split_tags(row["provenance_entities"]),
             "condition_raw": row["condition_raw"],
             "condition_tags": split_tags(row["condition_tags"]),
+            "lot_group_tag": row["lot_group_tag"],
+            "piece_count": row["piece_count"],
             "image_url": row["image_url"],
             "source_url": row["source_url"],
             "keyword": row["keyword"],
@@ -93,10 +99,14 @@ def main():
             dynasty_counts[item["normalized_dynasty"]] = dynasty_counts.get(item["normalized_dynasty"], 0) + 1
         if item["vessel_type"]:
             vessel_counts[item["vessel_type"]] = vessel_counts.get(item["vessel_type"], 0) + 1
+        for tag in item["glaze_color"]:
+            glaze_counts[tag] = glaze_counts.get(tag, 0) + 1
         for tag in item["provenance_tags"]:
             provenance_counts[tag] = provenance_counts.get(tag, 0) + 1
         for tag in item["condition_tags"]:
             condition_counts[tag] = condition_counts.get(tag, 0) + 1
+        if item["lot_group_tag"]:
+            lot_group_counts[item["lot_group_tag"]] = lot_group_counts.get(item["lot_group_tag"], 0) + 1
 
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -104,8 +114,10 @@ def main():
         "stats": {
             "dynasties": dynasty_counts,
             "vessel_types": vessel_counts,
+            "glaze_tags": glaze_counts,
             "provenance_tags": provenance_counts,
             "condition_tags": condition_counts,
+            "lot_groups": lot_group_counts,
         },
         "records": records,
     }

@@ -129,8 +129,10 @@ python export_search_dataset.py
 - 规范 `auction_date` 为 `YYYY-MM-DD`
 - 归一化 `dynasty`
 - 从标题/描述中补充 `vessel_type`、`glaze_color`、`motif`
+- `glaze_color` 现在允许多值标签，例如“内青花外粉彩”会写成 `青花|粉彩`
 - 结构化 `provenance`，生成可搜索的来源标签和实体名
 - 抽取 `condition_info`，并在搜索层生成 `condition_raw`、`condition_tags`
+- 提取成组拍品信息，生成 `lot_group_tag`、`piece_count`，用于区分单件 / 一对 / 多件 / 套组
 - 标记明显不适合进入搜索结果的记录，而不是删除原始数据
 - 生成 `quality_score`，方便后续前端做排序或低质量结果降权
 
@@ -139,6 +141,7 @@ python export_search_dataset.py
 - 资料类 / 图录 / 书籍类记录只在搜索清洗层排除，不会从 `auction_records` 原始抓取表删除
 - `search_records` 会保留 `provenance_raw`、`provenance_tags`、`provenance_entities`
 - `auction_records` 会保留 `condition_info`，`search_records` 会保留 `condition_raw`、`condition_tags`
+- `private_collection` 现在合并了“私人旧藏 / 家族旧藏”这类标签；如果只是“香港私人收藏 / 东南亚华侨旧藏”这类不具名来源，则不会进入 provenance tag
 - 后续前端如果需要做“来源筛选”，优先基于 `provenance_tags`，需要展示细节时再读取 `provenance_raw`
 - 后续前端如果需要做“品相筛选”，优先基于 `condition_tags`
 
@@ -207,6 +210,7 @@ python sample_search_dataset.py
 - `missing_features`：器型 / 釉色 / 纹饰仍缺失的记录
 - `provenance`：已经抽出来源信息的记录，会同时输出整段原始描述、抽取后的来源文本、来源标签和实体
 - `condition`：已经抽出品相信息的记录，会同时输出整段原始描述、抽取后的品相文本和品相标签
+- `grouped_lots`：已经识别成一对 / 两件 / 多件 / 套组的记录
 
 常用参数：
 
