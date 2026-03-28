@@ -153,7 +153,7 @@ python sample_search_dataset.py
 - `top_ready`：可搜索结果里质量分较高的记录
 - `missing_dynasty`：朝代仍缺失的记录
 - `missing_features`：器型 / 釉色 / 纹饰仍缺失的记录
-- `provenance`：已经抽出来源信息的记录
+- `provenance`：已经抽出来源信息的记录，会同时输出整段原始描述、抽取后的来源文本、来源标签和实体
 
 常用参数：
 

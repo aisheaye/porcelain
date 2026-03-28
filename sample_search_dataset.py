@@ -40,10 +40,11 @@ SECTIONS = {
         LIMIT ?
     """,
     "provenance": """
-        SELECT artron_id, search_title, provenance_raw, provenance_tags, provenance_entities
-        FROM search_records_ready
+        SELECT s.artron_id, s.search_title, a.description, s.provenance_raw, s.provenance_tags, s.provenance_entities
+        FROM search_records_ready AS s
+        JOIN auction_records AS a ON a.artron_id = s.artron_id
         WHERE provenance_raw IS NOT NULL
-        ORDER BY quality_score DESC, normalized_auction_date DESC, artron_id
+        ORDER BY s.quality_score DESC, s.normalized_auction_date DESC, s.artron_id
         LIMIT ?
     """,
 }
