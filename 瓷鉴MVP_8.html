@@ -431,7 +431,9 @@
     position: sticky;
     top: 18px;
     padding: 22px;
-    min-height: 640px;
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+    min-height: 0;
   }
 
   .detail-empty {
@@ -520,6 +522,8 @@
     .detail-panel {
       grid-column: 1 / -1;
       position: static;
+      max-height: none;
+      overflow: visible;
       min-height: 0;
     }
   }
@@ -537,6 +541,8 @@
     .filters,
     .detail-panel {
       position: static;
+      max-height: none;
+      overflow: visible;
     }
 
     .hero-stats {
