@@ -113,6 +113,12 @@ python detail_coverage_report.py
 python build_search_dataset.py
 ```
 
+如果要给前端页面加载，可进一步导出为本地可直接引用的 JS 数据文件：
+
+```bash
+python export_search_dataset.py
+```
+
 这个脚本会在 `porcelain_auction.db` 里重建：
 
 - `search_records`：搜索用派生表
@@ -140,7 +146,19 @@ python build_search_dataset.py
 
 1. 继续跑 `detail`
 2. 每隔一段时间执行一次 `python build_search_dataset.py`
-3. 后续前端优先查询 `search_records_ready`
+3. 如果要刷新前端演示数据，再执行一次 `python export_search_dataset.py`
+4. 后续前端优先查询 `search_records_ready`
+
+当前前端 MVP 文件是 `瓷鉴MVP_8.html`，它会加载：
+
+- `generated/search_records_ready.js`
+
+也就是说，本地刷新页面前的最短链路是：
+
+```bash
+python build_search_dataset.py
+python export_search_dataset.py
+```
 
 ## 批量爬取控制器
 

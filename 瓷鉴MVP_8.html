@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>瓷鉴 · 搜索评审 MVP</title>
+<style>
+  :root {
+    --ink: #18120d;
+    --paper: #f7f0e4;
+    --paper-deep: #eadfcf;
+    --line: rgba(24, 18, 13, 0.14);
+    --accent: #b13b2e;
+    --accent-soft: rgba(177, 59, 46, 0.12);
+    --gold: #8b6b2a;
+    --gold-soft: rgba(139, 107, 42, 0.12);
+    --jade: #375e58;
+    --jade-soft: rgba(55, 94, 88, 0.12);
+    --muted: #6f6255;
+    --card: rgba(255, 252, 246, 0.92);
+    --shadow: 0 16px 40px rgba(24, 18, 13, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: "FangSong", "STSong", serif;
+    background:
+      radial-gradient(circle at top left, rgba(177, 59, 46, 0.08), transparent 26%),
+      radial-gradient(circle at bottom right, rgba(55, 94, 88, 0.08), transparent 24%),
+      linear-gradient(180deg, #fbf6ee 0%, #f2e8d8 100%);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(24,18,13,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(24,18,13,0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.25;
+  }
+
+  .shell {
+    position: relative;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 26px 24px 80px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.3fr 0.9fr;
+    gap: 24px;
+    align-items: stretch;
+    margin-bottom: 24px;
+  }
+
+  .masthead,
+  .hero-note,
+  .filters,
+  .results-panel,
+  .detail-panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(12px);
+  }
+
+  .masthead {
+    padding: 30px 34px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .masthead::after {
+    content: "";
+    position: absolute;
+    width: 280px;
+    height: 280px;
+    right: -80px;
+    top: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(177, 59, 46, 0.18), transparent 66%);
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: "KaiTi", "STKaiti", serif;
+    font-size: clamp(38px, 5vw, 68px);
+    line-height: 0.95;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .subline {
+    margin-top: 16px;
+    max-width: 760px;
+    line-height: 1.7;
+    font-size: 16px;
+    color: var(--muted);
+  }
+
+  .hero-stats {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .stat-tile {
+    border: 1px solid var(--line);
+    padding: 14px 14px 16px;
+    background: rgba(255,255,255,0.55);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+
+  .stat-value {
+    margin-top: 8px;
+    font-family: "Georgia", serif;
+    font-size: 28px;
+    color: var(--ink);
+  }
+
+  .hero-note {
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background:
+      linear-gradient(155deg, rgba(24, 18, 13, 0.96) 0%, rgba(24, 18, 13, 0.9) 100%);
+    color: #f3e8d6;
+  }
+
+  .hero-note h2 {
+    margin: 0 0 12px;
+    font-family: "KaiTi", serif;
+    font-size: 28px;
+    letter-spacing: 0.06em;
+  }
+
+  .hero-note p {
+    margin: 0 0 16px;
+    line-height: 1.8;
+    color: rgba(243, 232, 214, 0.86);
+  }
+
+  .callouts {
+    display: grid;
+    gap: 10px;
+  }
+
+  .callout {
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #fff3de;
+    letter-spacing: 0.06em;
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr) 420px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .filters {
+    position: sticky;
+    top: 18px;
+    padding: 22px 18px;
+  }
+
+  .panel-title {
+    margin: 0 0 18px;
+    font-family: "KaiTi", serif;
+    font-size: 24px;
+    letter-spacing: 0.08em;
+  }
+
+  .search-box {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .search-box label,
+  .filter-group label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .search-input,
+  .filter-select {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.78);
+    color: var(--ink);
+    padding: 14px 14px;
+    font-size: 15px;
+    font-family: "FangSong", serif;
+    outline: none;
+  }
+
+  .search-input:focus,
+  .filter-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(177, 59, 46, 0.09);
+  }
+
+  .search-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn {
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    padding: 12px 14px;
+    font-family: "FangSong", serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 12px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff8f1;
+  }
+
+  .btn-secondary {
+    background: rgba(24, 18, 13, 0.08);
+    color: var(--ink);
+  }
+
+  .filter-grid {
+    display: grid;
+    gap: 14px;
+  }
+
+  .filter-group {
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .mini-summary {
+    margin-top: 18px;
+    padding: 14px;
+    background: rgba(24, 18, 13, 0.03);
+    border: 1px dashed var(--line);
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .results-panel {
+    padding: 22px 22px 24px;
+    min-height: 640px;
+  }
+
+  .results-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: end;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+
+  .results-head p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  .results-grid {
+    display: grid;
+    gap: 14px;
+  }
+
+  .record-card {
+    display: grid;
+    grid-template-columns: 126px minmax(0, 1fr) 140px;
+    gap: 18px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.72);
+    cursor: pointer;
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  }
+
+  .record-card:hover,
+  .record-card.active {
+    transform: translateY(-2px);
+    border-color: rgba(177, 59, 46, 0.32);
+    box-shadow: 0 12px 28px rgba(24, 18, 13, 0.08);
+  }
+
+  .record-card img,
+  .thumb-fallback {
+    width: 126px;
+    height: 126px;
+    object-fit: cover;
+    background: linear-gradient(135deg, #f0e4cf, #d9c5a7);
+    display: block;
+  }
+
+  .thumb-fallback {
+    display: grid;
+    place-items: center;
+    color: rgba(24, 18, 13, 0.38);
+    font-size: 34px;
+    font-family: "KaiTi", serif;
+  }
+
+  .record-title {
+    margin: 0 0 10px;
+    font-family: "KaiTi", serif;
+    font-size: 28px;
+    line-height: 1.22;
+  }
+
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .chip {
+    padding: 4px 9px 5px;
+    border: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.76);
+  }
+
+  .chip.accent {
+    border-color: rgba(177, 59, 46, 0.24);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .chip.gold {
+    border-color: rgba(139, 107, 42, 0.28);
+    background: var(--gold-soft);
+    color: var(--gold);
+  }
+
+  .chip.jade {
+    border-color: rgba(55, 94, 88, 0.25);
+    background: var(--jade-soft);
+    color: var(--jade);
+  }
+
+  .snippet {
+    color: var(--muted);
+    line-height: 1.75;
+    font-size: 14px;
+  }
+
+  .price-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .price-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+  }
+
+  .price-value {
+    font-family: "Georgia", serif;
+    font-size: 30px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .price-date {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .jump-link {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(24, 18, 13, 0.24);
+    padding-bottom: 3px;
+  }
+
+  .detail-panel {
+    position: sticky;
+    top: 18px;
+    padding: 22px;
+    min-height: 640px;
+  }
+
+  .detail-empty {
+    color: var(--muted);
+    line-height: 1.9;
+    padding-top: 6px;
+  }
+
+  .detail-card {
+    display: grid;
+    gap: 18px;
+  }
+
+  .detail-card h3 {
+    margin: 0;
+    font-family: "KaiTi", serif;
+    font-size: 30px;
+    line-height: 1.25;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .detail-metric {
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.6);
+  }
+
+  .detail-metric span {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+  }
+
+  .detail-metric strong {
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  .field-block {
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+
+  .field-block h4 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .field-block p {
+    margin: 0;
+    line-height: 1.85;
+    white-space: pre-wrap;
+    color: var(--ink);
+  }
+
+  .empty-state {
+    padding: 24px 0;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  .footer-note {
+    margin-top: 22px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 1280px) {
+    .workspace {
+      grid-template-columns: 300px minmax(0, 1fr);
+    }
+
+    .detail-panel {
+      grid-column: 1 / -1;
+      position: static;
+      min-height: 0;
+    }
+  }
+
+  @media (max-width: 920px) {
+    .shell {
+      padding: 16px 14px 48px;
+    }
+
+    .hero,
+    .workspace {
+      grid-template-columns: 1fr;
+    }
+
+    .filters,
+    .detail-panel {
+      position: static;
+    }
+
+    .hero-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .record-card {
+      grid-template-columns: 92px minmax(0, 1fr);
+    }
+
+    .record-card img,
+    .thumb-fallback {
+      width: 92px;
+      height: 92px;
+    }
+
+    .price-box {
+      grid-column: 2;
+      align-items: flex-start;
+      text-align: left;
+      gap: 6px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="masthead">
+        <div class="eyebrow">Porcelain Auction Review Console</div>
+        <h1>瓷鉴</h1>
+        <p class="subline">
+          这是一个面向数据质量评审的搜索 MVP。它不再是专题样本页，而是直接围绕
+          <code>search_records_ready</code> 导出的搜索数据集工作，让你在真实结果卡片里检查来源、品相、器型、朝代和价格是否值得进入正式产品。
+        </p>
+        <div class="hero-stats" id="heroStats"></div>
+      </div>
+      <aside class="hero-note">
+        <div>
+          <h2>评审重点</h2>
+          <p>先别在表格里纠结字段。优先看它们进入搜索成品以后，是否真的有价值、是否会误导用户、是否值得占据卡片空间与筛选器入口。</p>
+        </div>
+        <div class="callouts">
+          <div class="callout">
+            <strong>来源</strong>
+            看 `provenance_tags` 是否能帮助判断成交价参考价值，而不是只剩模糊文本。
+          </div>
+          <div class="callout">
+            <strong>品相</strong>
+            看 `condition_tags` 是否够直观，是否需要拆成更细的瑕疵类别。
+          </div>
+          <div class="callout">
+            <strong>数据边界</strong>
+            看资料类是否仍混入，或哪些字段只适合详情页，不适合结果卡片。
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="workspace">
+      <aside class="filters">
+        <h2 class="panel-title">检索与筛选</h2>
+        <div class="search-box">
+          <div>
+            <label for="queryInput">搜索描述</label>
+            <input id="queryInput" class="search-input" type="text" placeholder="例如：雍正 霁红釉盘 有来源 小飞皮">
+          </div>
+          <div class="search-actions">
+            <button id="searchBtn" class="btn btn-primary">搜索</button>
+            <button id="resetBtn" class="btn btn-secondary">清空</button>
+          </div>
+        </div>
+
+        <div class="filter-grid">
+          <div class="filter-group">
+            <label for="dynastyFilter">朝代</label>
+            <select id="dynastyFilter" class="filter-select"></select>
+          </div>
+          <div class="filter-group">
+            <label for="vesselFilter">器型</label>
+            <select id="vesselFilter" class="filter-select"></select>
+          </div>
+          <div class="filter-group">
+            <label for="provenanceFilter">来源标签</label>
+            <select id="provenanceFilter" class="filter-select"></select>
+          </div>
+          <div class="filter-group">
+            <label for="conditionFilter">品相标签</label>
+            <select id="conditionFilter" class="filter-select"></select>
+          </div>
+          <div class="filter-group">
+            <label for="sortSelect">排序方式</label>
+            <select id="sortSelect" class="filter-select">
+              <option value="relevance">相关度优先</option>
+              <option value="quality_desc">质量分优先</option>
+              <option value="date_desc">日期最新</option>
+              <option value="price_desc">成交价从高到低</option>
+              <option value="price_asc">成交价从低到高</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mini-summary" id="miniSummary">
+          等待数据加载。
+        </div>
+      </aside>
+
+      <main class="results-panel">
+        <div class="results-head">
+          <div>
+            <div class="eyebrow">Review Surface</div>
+            <h2 class="panel-title" style="margin-bottom:0;">搜索结果</h2>
+            <p id="resultsStatus">正在载入导出的搜索数据集。</p>
+          </div>
+        </div>
+        <div class="results-grid" id="resultsGrid"></div>
+        <div class="empty-state" id="emptyState" style="display:none;"></div>
+      </main>
+
+      <aside class="detail-panel">
+        <div class="detail-empty" id="detailEmpty">
+          请选择一条记录。右侧详情会重点展示 `provenance_raw`、`condition_raw` 和整段原始描述，方便你直接判断抽取逻辑是否靠谱。
+        </div>
+        <div class="detail-card" id="detailCard" style="display:none;"></div>
+      </aside>
+    </section>
+
+    <div class="footer-note" id="footerNote">
+      先运行 <code>python export_search_dataset.py</code>，再打开本页。
+    </div>
+  </div>
+
+  <script src="./generated/search_records_ready.js"></script>
+  <script>
+    const PROVENANCE_LABELS = {
+      private_collection: "私人旧藏",
+      family_collection: "家族旧藏",
+      estate_collection: "遗藏",
+      important_collector: "重要藏家",
+      museum_collection: "博物馆",
+      auction_history: "拍卖纪录",
+      published: "著录",
+      exhibited: "展览"
+    };
+
+    const CONDITION_LABELS = {
+      excellent: "近全品",
+      good: "品相良好",
+      minor_wear: "轻微磨损",
+      chip: "飞皮缺口",
+      crack: "冲线裂纹",
+      restored: "修复件"
+    };
+
+    const state = {
+      records: [],
+      filtered: [],
+      selectedId: null
+    };
+
+    function fmtPrice(value) {
+      if (value === null || value === undefined || value === "") return "未录入";
+      const num = Number(value);
+      if (!Number.isFinite(num)) return String(value);
+      if (num >= 100000000) return "高值待核";
+      return "RMB " + num.toLocaleString("en-US");
+    }
+
+    function fmtDate(value) {
+      return value || "日期待补";
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function labelTag(type, tag) {
+      if (type === "provenance") return PROVENANCE_LABELS[tag] || tag;
+      if (type === "condition") return CONDITION_LABELS[tag] || tag;
+      return tag;
+    }
+
+    function buildSelect(selectId, items, placeholder) {
+      const select = document.getElementById(selectId);
+      const options = ['<option value="">' + placeholder + "</option>"];
+      items.forEach(item => {
+        options.push('<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + "</option>");
+      });
+      select.innerHTML = options.join("");
+    }
+
+    function heroStat(label, value) {
+      return `
+        <article class="stat-tile">
+          <div class="stat-label">${label}</div>
+          <div class="stat-value">${value}</div>
+        </article>
+      `;
+    }
+
+    function renderHero(dataset) {
+      const stats = dataset.stats || {};
+      const hero = document.getElementById("heroStats");
+      hero.innerHTML = [
+        heroStat("可搜索记录", dataset.record_count || 0),
+        heroStat("来源标签", Object.keys(stats.provenance_tags || {}).length),
+        heroStat("品相标签", Object.keys(stats.condition_tags || {}).length),
+        heroStat("导出时间", (dataset.generated_at || "").slice(11, 16) || "--:--")
+      ].join("");
+    }
+
+    function datasetReady() {
+      return window.SEARCH_DATASET && Array.isArray(window.SEARCH_DATASET.records);
+    }
+
+    function initialize() {
+      if (!datasetReady()) {
+        document.getElementById("resultsStatus").textContent = "未检测到导出数据。请先运行 python export_search_dataset.py。";
+        document.getElementById("emptyState").style.display = "block";
+        document.getElementById("emptyState").textContent = "缺少 generated/search_records_ready.js。";
+        return;
+      }
+
+      const dataset = window.SEARCH_DATASET;
+      state.records = dataset.records;
+      renderHero(dataset);
+      buildFilterOptions(dataset);
+      bindEvents();
+      applyFilters();
+      document.getElementById("footerNote").innerHTML =
+        `数据导出时间：<strong>${escapeHtml(dataset.generated_at || "未知")}</strong> · 源：generated/search_records_ready.js`;
+    }
+
+    function buildFilterOptions(dataset) {
+      const dynasties = Object.keys(dataset.stats?.dynasties || {}).sort((a, b) => (dataset.stats.dynasties[b] || 0) - (dataset.stats.dynasties[a] || 0));
+      const vessels = Object.keys(dataset.stats?.vessel_types || {}).sort((a, b) => (dataset.stats.vessel_types[b] || 0) - (dataset.stats.vessel_types[a] || 0));
+      const provenanceTags = Object.keys(dataset.stats?.provenance_tags || {}).sort((a, b) => (dataset.stats.provenance_tags[b] || 0) - (dataset.stats.provenance_tags[a] || 0)).map(tag => `${labelTag("provenance", tag)} (${tag})`);
+      const conditionTags = Object.keys(dataset.stats?.condition_tags || {}).sort((a, b) => (dataset.stats.condition_tags[b] || 0) - (dataset.stats.condition_tags[a] || 0)).map(tag => `${labelTag("condition", tag)} (${tag})`);
+
+      buildSelect("dynastyFilter", dynasties, "全部朝代");
+      buildSelect("vesselFilter", vessels, "全部器型");
+      buildSelect("provenanceFilter", provenanceTags, "全部来源标签");
+      buildSelect("conditionFilter", conditionTags, "全部品相标签");
+    }
+
+    function bindEvents() {
+      document.getElementById("searchBtn").addEventListener("click", applyFilters);
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        document.getElementById("queryInput").value = "";
+        document.getElementById("dynastyFilter").value = "";
+        document.getElementById("vesselFilter").value = "";
+        document.getElementById("provenanceFilter").value = "";
+        document.getElementById("conditionFilter").value = "";
+        document.getElementById("sortSelect").value = "relevance";
+        applyFilters();
+      });
+
+      ["queryInput", "dynastyFilter", "vesselFilter", "provenanceFilter", "conditionFilter", "sortSelect"].forEach(id => {
+        const el = document.getElementById(id);
+        const eventName = id === "queryInput" ? "keydown" : "change";
+        el.addEventListener(eventName, ev => {
+          if (eventName === "keydown" && ev.key !== "Enter") return;
+          applyFilters();
+        });
+      });
+    }
+
+    function matchesFilters(record, filters) {
+      if (filters.dynasty && record.normalized_dynasty !== filters.dynasty) return false;
+      if (filters.vessel && record.vessel_type !== filters.vessel) return false;
+
+      if (filters.provenance) {
+        const rawTag = filters.provenance.match(/\(([^)]+)\)$/);
+        const tag = rawTag ? rawTag[1] : filters.provenance;
+        if (!record.provenance_tags.includes(tag)) return false;
+      }
+
+      if (filters.condition) {
+        const rawTag = filters.condition.match(/\(([^)]+)\)$/);
+        const tag = rawTag ? rawTag[1] : filters.condition;
+        if (!record.condition_tags.includes(tag)) return false;
+      }
+      return true;
+    }
+
+    function scoreRecord(record, tokens) {
+      if (tokens.length === 0) return record.quality_score || 0;
+      const haystack = [
+        record.search_title,
+        record.raw_name,
+        record.normalized_dynasty,
+        record.vessel_type,
+        record.glaze_color,
+        record.motif,
+        record.description,
+        record.provenance_raw,
+        (record.provenance_tags || []).join(" "),
+        (record.provenance_entities || []).join(" "),
+        record.condition_raw,
+        (record.condition_tags || []).join(" "),
+        record.auction_house,
+        record.keyword
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      let score = record.quality_score || 0;
+      tokens.forEach(token => {
+        if (haystack.includes(token)) score += 6;
+        if ((record.search_title || "").toLowerCase().includes(token)) score += 9;
+        if ((record.provenance_raw || "").toLowerCase().includes(token)) score += 4;
+        if ((record.condition_raw || "").toLowerCase().includes(token)) score += 4;
+      });
+      return score;
+    }
+
+    function sortRecords(records, mode) {
+      if (mode === "quality_desc") {
+        return records.sort((a, b) => (b.score - a.score) || ((b.record.quality_score || 0) - (a.record.quality_score || 0)));
+      }
+      if (mode === "date_desc") {
+        return records.sort((a, b) => (b.record.normalized_auction_date || "").localeCompare(a.record.normalized_auction_date || ""));
+      }
+      if (mode === "price_desc") {
+        return records.sort((a, b) => (Number(b.record.sold_price) || 0) - (Number(a.record.sold_price) || 0));
+      }
+      if (mode === "price_asc") {
+        return records.sort((a, b) => (Number(a.record.sold_price) || 0) - (Number(b.record.sold_price) || 0));
+      }
+      return records.sort((a, b) => b.score - a.score);
+    }
+
+    function applyFilters() {
+      const query = document.getElementById("queryInput").value.trim().toLowerCase();
+      const filters = {
+        dynasty: document.getElementById("dynastyFilter").value,
+        vessel: document.getElementById("vesselFilter").value,
+        provenance: document.getElementById("provenanceFilter").value,
+        condition: document.getElementById("conditionFilter").value
+      };
+      const sortMode = document.getElementById("sortSelect").value;
+      const tokens = query.split(/\s+/).filter(Boolean);
+
+      const scored = state.records
+        .filter(record => matchesFilters(record, filters))
+        .map(record => ({ record, score: scoreRecord(record, tokens) }))
+        .filter(entry => tokens.length === 0 || entry.score > (entry.record.quality_score || 0));
+
+      state.filtered = sortRecords(scored, sortMode).map(item => item.record);
+      state.selectedId = state.filtered[0] ? state.filtered[0].artron_id : null;
+
+      renderSummary(filters, query);
+      renderResults();
+      renderDetail();
+    }
+
+    function renderSummary(filters, query) {
+      const status = document.getElementById("resultsStatus");
+      const mini = document.getElementById("miniSummary");
+      const count = state.filtered.length;
+      const withProvenance = state.filtered.filter(item => item.provenance_tags.length > 0).length;
+      const withCondition = state.filtered.filter(item => item.condition_tags.length > 0).length;
+      const highQuality = state.filtered.filter(item => (item.quality_score || 0) >= 10).length;
+
+      status.textContent = `当前结果 ${count} 条。这里最适合观察字段是否真的值得进入成品，而不是单看数据库列。`;
+      mini.innerHTML = `
+        <strong>当前筛选</strong><br>
+        检索词：${escapeHtml(query || "未输入")}<br>
+        朝代：${escapeHtml(filters.dynasty || "全部")}<br>
+        器型：${escapeHtml(filters.vessel || "全部")}<br>
+        来源标签命中：${withProvenance} 条<br>
+        品相标签命中：${withCondition} 条<br>
+        高质量记录：${highQuality} 条
+      `;
+    }
+
+    function cardChips(record) {
+      const chips = [];
+      if (record.normalized_dynasty) chips.push(`<span class="chip">${escapeHtml(record.normalized_dynasty)}</span>`);
+      if (record.vessel_type) chips.push(`<span class="chip">${escapeHtml(record.vessel_type)}</span>`);
+      if (record.glaze_color) chips.push(`<span class="chip">${escapeHtml(record.glaze_color)}</span>`);
+      if (record.motif) chips.push(`<span class="chip">${escapeHtml(record.motif)}</span>`);
+      if (record.provenance_tags.length) chips.push(`<span class="chip gold">${escapeHtml(record.provenance_tags.map(tag => labelTag("provenance", tag)).join(" · "))}</span>`);
+      if (record.condition_tags.length) chips.push(`<span class="chip jade">${escapeHtml(record.condition_tags.map(tag => labelTag("condition", tag)).join(" · "))}</span>`);
+      return chips.join("");
+    }
+
+    function snippet(text, limit = 150) {
+      if (!text) return "暂无描述。";
+      const compact = text.replace(/\s+/g, " ").trim();
+      return compact.length > limit ? compact.slice(0, limit) + "…" : compact;
+    }
+
+    function renderResults() {
+      const grid = document.getElementById("resultsGrid");
+      const empty = document.getElementById("emptyState");
+      grid.innerHTML = "";
+
+      if (state.filtered.length === 0) {
+        empty.style.display = "block";
+        empty.textContent = "没有命中结果。换一组关键词，或者先放宽 provenance / condition / 朝代筛选。";
+        return;
+      }
+
+      empty.style.display = "none";
+      state.filtered.forEach(record => {
+        const card = document.createElement("article");
+        card.className = "record-card" + (record.artron_id === state.selectedId ? " active" : "");
+        card.addEventListener("click", () => {
+          state.selectedId = record.artron_id;
+          renderResults();
+          renderDetail();
+        });
+
+        const thumb = record.image_url
+          ? `<img src="${escapeHtml(record.image_url)}" alt="${escapeHtml(record.search_title)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;thumb-fallback&quot;>瓷</div>'">`
+          : `<div class="thumb-fallback">瓷</div>`;
+
+        const price = fmtPrice(record.sold_price);
+        card.innerHTML = `
+          ${thumb}
+          <div>
+            <h3 class="record-title">${escapeHtml(record.search_title || record.raw_name || "未命名拍品")}</h3>
+            <div class="chip-row">${cardChips(record)}</div>
+            <div class="snippet">${escapeHtml(snippet(record.description))}</div>
+          </div>
+          <div class="price-box">
+            <div>
+              <div class="price-label">成交价</div>
+              <div class="price-value">${escapeHtml(price)}</div>
+            </div>
+            <div class="price-date">${escapeHtml(fmtDate(record.normalized_auction_date))}<br>${escapeHtml(record.auction_house || "拍卖行待补")}</div>
+            <a class="jump-link" href="${escapeHtml(record.source_url || "#")}" target="_blank" rel="noreferrer">查看原始页面</a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function metric(label, value) {
+      return `
+        <div class="detail-metric">
+          <span>${label}</span>
+          <strong>${escapeHtml(value || "待补")}</strong>
+        </div>
+      `;
+    }
+
+    function renderDetail() {
+      const card = document.getElementById("detailCard");
+      const empty = document.getElementById("detailEmpty");
+      const record = state.filtered.find(item => item.artron_id === state.selectedId);
+
+      if (!record) {
+        card.style.display = "none";
+        empty.style.display = "block";
+        return;
+      }
+
+      empty.style.display = "none";
+      card.style.display = "grid";
+      card.innerHTML = `
+        <div>
+          <div class="eyebrow">Selected Record</div>
+          <h3>${escapeHtml(record.search_title || record.raw_name)}</h3>
+        </div>
+
+        <div class="chip-row">
+          ${cardChips(record)}
+        </div>
+
+        <div class="detail-grid">
+          ${metric("朝代", record.normalized_dynasty)}
+          ${metric("器型", record.vessel_type)}
+          ${metric("釉色", record.glaze_color)}
+          ${metric("纹饰", record.motif)}
+          ${metric("成交价", fmtPrice(record.sold_price))}
+          ${metric("日期", fmtDate(record.normalized_auction_date))}
+          ${metric("拍卖行", record.auction_house)}
+          ${metric("质量分", record.quality_score)}
+        </div>
+
+        <div class="field-block">
+          <h4>来源原文</h4>
+          <p>${escapeHtml(record.provenance_raw || "未抽到来源文本")}</p>
+        </div>
+
+        <div class="field-block">
+          <h4>来源实体</h4>
+          <p>${escapeHtml(record.provenance_entities.join(" · ") || "未抽到来源实体")}</p>
+        </div>
+
+        <div class="field-block">
+          <h4>品相原文</h4>
+          <p>${escapeHtml(record.condition_raw || "未抽到品相文本")}</p>
+        </div>
+
+        <div class="field-block">
+          <h4>原始描述</h4>
+          <p>${escapeHtml(record.description || "暂无描述")}</p>
+        </div>
+      `;
+    }
+
+    document.addEventListener("DOMContentLoaded", initialize);
+  </script>
+</body>
+</html>
