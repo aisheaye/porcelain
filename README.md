@@ -142,6 +142,37 @@ python build_search_dataset.py
 2. 每隔一段时间执行一次 `python build_search_dataset.py`
 3. 后续前端优先查询 `search_records_ready`
 
+## 批量爬取控制器
+
+如果你不想手动一轮轮执行 `detail` 或 `images`，可以使用批量控制器：
+
+```bash
+python batch_crawl_controller.py --mode detail --rounds 5 --limit-per-round 200 --delay 5
+```
+
+这个脚本会按轮次：
+
+1. 调用 `artron_scraper5.py`
+2. 读取数据库前后状态
+3. 输出每轮新增量、错误量、待处理量
+4. 判断是否继续下一轮
+5. 可选重建搜索数据集
+
+常用示例：
+
+```bash
+python batch_crawl_controller.py --mode detail --rounds 3 --limit-per-round 300 --delay 5
+python batch_crawl_controller.py --mode detail --rounds 3 --limit-per-round 300 --delay 5 --rebuild-search-dataset
+python batch_crawl_controller.py --mode images --rounds 2 --limit-per-round 100 --delay 3 --download-all-images
+```
+
+说明：
+
+- 当前控制器优先用于 `detail` 和 `images`
+- 如果索引仍未跑完，脚本会给出提示，但不会阻止 `detail` 继续跑
+- 默认会把每轮摘要追加到 `generated/controller_runs.jsonl`
+- 如果不想写本地日志，可以加 `--no-log`
+
 ## 抽样检查搜索数据
 
 如果你想快速人工抽样，而不是手写 SQL，可以直接运行：
