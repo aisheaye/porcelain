@@ -132,6 +132,29 @@ python build_search_dataset.py
 2. 每隔一段时间执行一次 `python build_search_dataset.py`
 3. 后续前端优先查询 `search_records_ready`
 
+## 抽样检查搜索数据
+
+如果你想快速人工抽样，而不是手写 SQL，可以直接运行：
+
+```bash
+python sample_search_dataset.py
+```
+
+默认会输出 4 组样本：
+
+- `excluded`：被排除的记录
+- `top_ready`：可搜索结果里质量分较高的记录
+- `missing_dynasty`：朝代仍缺失的记录
+- `missing_features`：器型 / 釉色 / 纹饰仍缺失的记录
+
+常用参数：
+
+```bash
+python sample_search_dataset.py --limit 20
+python sample_search_dataset.py --section excluded
+python sample_search_dataset.py --section top_ready --section low_quality --limit 15
+```
+
 ## Git 约定
 
 以下内容不会提交到 Git：
