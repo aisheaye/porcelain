@@ -12,8 +12,8 @@ SECTIONS = {
         LIMIT ?
     """,
     "top_ready": """
-        SELECT artron_id, search_title, normalized_dynasty, normalized_auction_date,
-               vessel_type, glaze_color, motif, quality_score
+        SELECT artron_id, search_title, normalized_dynasty, reign_period, painted_decoration,
+               vessel_category, vessel_type, provenance_category, condition_rank, quality_score
         FROM search_records_ready
         ORDER BY quality_score DESC, normalized_auction_date DESC, artron_id
         LIMIT ?
@@ -62,9 +62,17 @@ SECTIONS = {
         ORDER BY normalized_auction_date DESC, quality_score DESC, artron_id
         LIMIT ?
     """,
+    "taxonomy": """
+        SELECT artron_id, search_title, normalized_dynasty, reign_period, kiln, base_glaze, base_glaze_subtype,
+               painted_decoration, non_painted_decoration, vessel_category, vessel_type,
+               provenance_category, condition_rank
+        FROM search_records_ready
+        ORDER BY quality_score DESC, normalized_auction_date DESC, artron_id
+        LIMIT ?
+    """,
 }
 
-DEFAULT_SECTIONS = ["excluded", "top_ready", "missing_dynasty", "missing_features", "provenance", "condition", "grouped_lots"]
+DEFAULT_SECTIONS = ["excluded", "top_ready", "taxonomy", "provenance", "condition", "grouped_lots"]
 
 
 def parse_args():

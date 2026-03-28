@@ -23,6 +23,7 @@ def main():
             s.search_title,
             s.raw_name,
             s.normalized_dynasty,
+            s.reign_period,
             s.normalized_auction_date,
             s.auction_year,
             s.lot_number,
@@ -32,13 +33,21 @@ def main():
             s.diameter_cm,
             s.aperture_cm,
             s.other_size_notes,
+            s.kiln,
+            s.base_glaze,
+            s.base_glaze_subtype,
+            s.painted_decoration,
+            s.non_painted_decoration,
+            s.vessel_category,
             s.vessel_type,
-            s.glaze_color,
             s.motif,
             s.provenance_raw,
+            s.provenance_category,
             s.provenance_tags,
             s.provenance_entities,
             s.condition_raw,
+            s.condition_rank,
+            s.condition_rank_order,
             s.condition_tags,
             s.lot_group_tag,
             s.piece_count,
@@ -68,10 +77,13 @@ def main():
 
     records = []
     dynasty_counts = {}
+    reign_counts = {}
     vessel_counts = {}
-    glaze_counts = {}
+    painted_counts = {}
     provenance_counts = {}
     condition_counts = {}
+    kiln_counts = {}
+    vessel_category_counts = {}
     lot_group_counts = {}
 
     for row in rows:
@@ -80,6 +92,7 @@ def main():
             "search_title": row["search_title"],
             "raw_name": row["raw_name"],
             "normalized_dynasty": row["normalized_dynasty"],
+            "reign_period": row["reign_period"],
             "normalized_auction_date": row["normalized_auction_date"],
             "auction_year": row["auction_year"],
             "lot_number": row["lot_number"],
@@ -89,13 +102,22 @@ def main():
             "diameter_cm": row["diameter_cm"],
             "aperture_cm": row["aperture_cm"],
             "other_size_notes": row["other_size_notes"],
+            "kiln": row["kiln"],
+            "base_glaze": row["base_glaze"],
+            "base_glaze_subtype": row["base_glaze_subtype"],
+            "painted_decoration": split_tags(row["painted_decoration"]),
+            "glaze_color": split_tags(row["painted_decoration"]),
+            "non_painted_decoration": row["non_painted_decoration"],
+            "vessel_category": row["vessel_category"],
             "vessel_type": row["vessel_type"],
-            "glaze_color": split_tags(row["glaze_color"]),
             "motif": row["motif"],
             "provenance_raw": row["provenance_raw"],
+            "provenance_category": row["provenance_category"],
             "provenance_tags": split_tags(row["provenance_tags"]),
             "provenance_entities": split_tags(row["provenance_entities"]),
             "condition_raw": row["condition_raw"],
+            "condition_rank": row["condition_rank"],
+            "condition_rank_order": row["condition_rank_order"],
             "condition_tags": split_tags(row["condition_tags"]),
             "lot_group_tag": row["lot_group_tag"],
             "piece_count": row["piece_count"],
@@ -122,13 +144,19 @@ def main():
 
         if item["normalized_dynasty"]:
             dynasty_counts[item["normalized_dynasty"]] = dynasty_counts.get(item["normalized_dynasty"], 0) + 1
+        if item["reign_period"]:
+            reign_counts[item["reign_period"]] = reign_counts.get(item["reign_period"], 0) + 1
+        if item["kiln"]:
+            kiln_counts[item["kiln"]] = kiln_counts.get(item["kiln"], 0) + 1
+        if item["vessel_category"]:
+            vessel_category_counts[item["vessel_category"]] = vessel_category_counts.get(item["vessel_category"], 0) + 1
         if item["vessel_type"]:
             vessel_counts[item["vessel_type"]] = vessel_counts.get(item["vessel_type"], 0) + 1
-        for tag in item["glaze_color"]:
-            glaze_counts[tag] = glaze_counts.get(tag, 0) + 1
-        for tag in item["provenance_tags"]:
+        for tag in item["painted_decoration"]:
+            painted_counts[tag] = painted_counts.get(tag, 0) + 1
+        for tag in set(item["provenance_tags"] or ([item["provenance_category"]] if item["provenance_category"] else [])):
             provenance_counts[tag] = provenance_counts.get(tag, 0) + 1
-        for tag in item["condition_tags"]:
+        for tag in set(item["condition_tags"] or ([item["condition_rank"]] if item["condition_rank"] else [])):
             condition_counts[tag] = condition_counts.get(tag, 0) + 1
         if item["lot_group_tag"]:
             lot_group_counts[item["lot_group_tag"]] = lot_group_counts.get(item["lot_group_tag"], 0) + 1
@@ -138,8 +166,12 @@ def main():
         "record_count": len(records),
         "stats": {
             "dynasties": dynasty_counts,
+            "reign_periods": reign_counts,
+            "kilns": kiln_counts,
+            "vessel_categories": vessel_category_counts,
             "vessel_types": vessel_counts,
-            "glaze_tags": glaze_counts,
+            "painted_decorations": painted_counts,
+            "glaze_tags": painted_counts,
             "provenance_tags": provenance_counts,
             "condition_tags": condition_counts,
             "lot_groups": lot_group_counts,

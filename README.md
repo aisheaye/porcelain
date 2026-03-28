@@ -130,6 +130,7 @@ python export_search_dataset.py
 - 归一化 `dynasty`
 - 从标题/描述中补充 `vessel_type`、`glaze_color`、`motif`
 - `glaze_color` 现在允许多值标签，例如“内青花外粉彩”会写成 `青花|粉彩`
+- taxonomy 第一批字段已落到搜索层：`reign_period`、`kiln`、`base_glaze`、`base_glaze_subtype`、`painted_decoration`、`non_painted_decoration`、`vessel_category`、`vessel_type`、`provenance_category`、`condition_rank`
 - 结构化 `provenance`，生成可搜索的来源标签和实体名
 - 抽取 `condition_info`，并在搜索层生成 `condition_raw`、`condition_tags`
 - 保留 `size_raw`，并尽量拆出 `height_cm`、`diameter_cm`、`aperture_cm`
@@ -218,6 +219,7 @@ python sample_search_dataset.py
 - `provenance`：已经抽出来源信息的记录，会同时输出整段原始描述、抽取后的来源文本、来源标签和实体
 - `condition`：已经抽出品相信息的记录，会同时输出整段原始描述、抽取后的品相文本和品相标签
 - `grouped_lots`：已经识别成一对 / 两件 / 多件 / 套组的记录
+- `taxonomy`：查看第一批 taxonomy 字段是否落对
 
 常用参数：
 
