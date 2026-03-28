@@ -529,7 +529,48 @@ def scrape_detail(session, url, keyword):
     return extract_record_from_state(state, url, keyword) if state else None
 
 
+DETAIL_RECORD_FIELDS = [
+    "artron_id",
+    "name",
+    "dynasty",
+    "size",
+    "category",
+    "estimate_low",
+    "estimate_high",
+    "sold_price",
+    "is_sold",
+    "auction_house",
+    "auction_session",
+    "auction_name",
+    "auction_date",
+    "auction_city",
+    "lot_number",
+    "description",
+    "provenance",
+    "has_provenance",
+    "image_url",
+    "image_urls",
+    "source_url",
+    "keyword",
+    "is_ming_qing",
+    "raw_state_json",
+    "mark_text",
+    "vessel_type",
+    "glaze_color",
+    "motif",
+    "publication_info",
+    "exhibition_info",
+]
+
+
+def normalize_detail_record(record):
+    normalized = {field: None for field in DETAIL_RECORD_FIELDS}
+    normalized.update(record)
+    return normalized
+
+
 def save_detail_record(conn, record):
+    record = normalize_detail_record(record)
     conn.execute(
         """
         INSERT INTO auction_records (
