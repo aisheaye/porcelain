@@ -27,6 +27,11 @@ def main():
             s.auction_year,
             s.lot_number,
             s.sold_price,
+            s.size_raw,
+            s.height_cm,
+            s.diameter_cm,
+            s.aperture_cm,
+            s.other_size_notes,
             s.vessel_type,
             s.glaze_color,
             s.motif,
@@ -52,7 +57,8 @@ def main():
             a.auction_name,
             a.auction_city,
             a.description,
-            a.size
+            a.size,
+            a.mark_text
         FROM search_records_ready AS s
         JOIN auction_records AS a ON a.artron_id = s.artron_id
         ORDER BY s.quality_score DESC, s.normalized_auction_date DESC, s.artron_id
@@ -78,6 +84,11 @@ def main():
             "auction_year": row["auction_year"],
             "lot_number": row["lot_number"],
             "sold_price": row["sold_price"],
+            "size_raw": row["size_raw"] or row["size"],
+            "height_cm": row["height_cm"],
+            "diameter_cm": row["diameter_cm"],
+            "aperture_cm": row["aperture_cm"],
+            "other_size_notes": row["other_size_notes"],
             "vessel_type": row["vessel_type"],
             "glaze_color": split_tags(row["glaze_color"]),
             "motif": row["motif"],
@@ -105,6 +116,7 @@ def main():
             "auction_city": row["auction_city"],
             "description": row["description"],
             "size": row["size"],
+            "mark_text": row["mark_text"],
         }
         records.append(item)
 

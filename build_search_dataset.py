@@ -340,6 +340,54 @@ def normalize_condition(value, description):
     return None
 
 
+def parse_size_value(match):
+    raw = clean_text(match)
+    if not raw:
+        return None
+    raw = raw.replace("厘米", "cm").replace("公分", "cm").replace("ＣＭ", "cm").replace("CM", "cm")
+    number = re.search(r"(\d+(?:\.\d+)?)", raw)
+    return float(number.group(1)) if number else None
+
+
+def derive_size_fields(size_text):
+    text = clean_text(size_text)
+    if not text:
+        return None, None, None, None, None
+
+    normalized = text.replace("厘米", "cm").replace("公分", "cm").replace("ＣＭ", "cm").replace("CM", "cm")
+    height_cm = None
+    diameter_cm = None
+    aperture_cm = None
+
+    height_match = re.search(r"(?:通高|高)\s*([0-9]+(?:\.[0-9]+)?)\s*cm", normalized, re.IGNORECASE)
+    if height_match:
+        height_cm = float(height_match.group(1))
+
+    diameter_match = re.search(r"(?:直径|口径|腹径|底径|最大直径)\s*([0-9]+(?:\.[0-9]+)?)\s*cm", normalized, re.IGNORECASE)
+    if diameter_match:
+        diameter_cm = float(diameter_match.group(1))
+
+    aperture_match = re.search(r"(?:口径)\s*([0-9]+(?:\.[0-9]+)?)\s*cm", normalized, re.IGNORECASE)
+    if aperture_match:
+        aperture_cm = float(aperture_match.group(1))
+
+    if diameter_cm is None:
+        fallback_diameter = re.search(r"(?:直徑|口徑)\s*([0-9]+(?:\.[0-9]+)?)\s*cm", normalized, re.IGNORECASE)
+        if fallback_diameter:
+            diameter_cm = float(fallback_diameter.group(1))
+
+    if aperture_cm is None and diameter_cm is not None and contains_any(normalized, ["口径", "口徑"]):
+        aperture_cm = diameter_cm
+
+    matched_fragments = re.findall(r"(?:通高|高|直径|直徑|口径|口徑|腹径|底径|最大直径)\s*[0-9]+(?:\.[0-9]+)?\s*cm", normalized, re.IGNORECASE)
+    other_size_notes = clean_text(re.sub(r"[，,；; ]+", " ", normalized))
+    if matched_fragments:
+        for fragment in matched_fragments:
+            other_size_notes = other_size_notes.replace(fragment, "").strip()
+    other_size_notes = clean_text(re.sub(r"^[，,；; ]+|[，,；; ]+$", "", other_size_notes or ""))
+    return text, height_cm, diameter_cm, aperture_cm, other_size_notes
+
+
 def derive_condition_tags(text):
     if not text:
         return None
@@ -439,6 +487,11 @@ def init_search_table(conn):
             auction_year INTEGER,
             lot_number TEXT,
             sold_price INTEGER,
+            size_raw TEXT,
+            height_cm REAL,
+            diameter_cm REAL,
+            aperture_cm REAL,
+            other_size_notes TEXT,
             vessel_type TEXT,
             glaze_color TEXT,
             motif TEXT,
@@ -479,7 +532,7 @@ def rebuild_search_dataset(conn):
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         """
-        SELECT artron_id, name, dynasty, description, provenance, condition_info, vessel_type, glaze_color, motif,
+        SELECT artron_id, name, dynasty, size, description, provenance, condition_info, vessel_type, glaze_color, motif,
                auction_date, lot_number, sold_price, image_url, source_url, keyword
         FROM auction_records
         WHERE detail_status='done'
@@ -492,6 +545,7 @@ def rebuild_search_dataset(conn):
         search_title = clean_text(row["name"])
         normalized_date = normalize_auction_date(row["auction_date"])
         normalized_dynasty = normalize_dynasty(row["dynasty"], f"{row['name'] or ''} {row['description'] or ''}")
+        size_raw, height_cm, diameter_cm, aperture_cm, other_size_notes = derive_size_fields(row["size"])
 
         lookup_texts = [row["name"], row["description"]]
         vessel_type = clean_text(row["vessel_type"]) or first_match(lookup_texts, VESSEL_TYPES)
@@ -527,6 +581,11 @@ def rebuild_search_dataset(conn):
                 auction_year,
                 clean_text(row["lot_number"]),
                 row["sold_price"],
+                size_raw,
+                height_cm,
+                diameter_cm,
+                aperture_cm,
+                other_size_notes,
                 vessel_type,
                 glaze_color,
                 motif,
@@ -550,12 +609,13 @@ def rebuild_search_dataset(conn):
         """
         INSERT INTO search_records (
             artron_id, raw_name, search_title, normalized_dynasty, normalized_auction_date,
-            auction_year, lot_number, sold_price, vessel_type, glaze_color, motif,
+            auction_year, lot_number, sold_price, size_raw, height_cm, diameter_cm, aperture_cm, other_size_notes,
+            vessel_type, glaze_color, motif,
             provenance_raw, provenance_tags, provenance_entities, condition_raw, condition_tags,
             lot_group_tag, piece_count, image_url, source_url, keyword, quality_score,
             is_excluded, exclusion_reason
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )

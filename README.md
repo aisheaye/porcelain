@@ -132,6 +132,7 @@ python export_search_dataset.py
 - `glaze_color` 现在允许多值标签，例如“内青花外粉彩”会写成 `青花|粉彩`
 - 结构化 `provenance`，生成可搜索的来源标签和实体名
 - 抽取 `condition_info`，并在搜索层生成 `condition_raw`、`condition_tags`
+- 保留 `size_raw`，并尽量拆出 `height_cm`、`diameter_cm`、`aperture_cm`
 - 提取成组拍品信息，生成 `lot_group_tag`、`piece_count`，用于区分单件 / 一对 / 多件 / 套组
 - 标记明显不适合进入搜索结果的记录，而不是删除原始数据
 - 生成 `quality_score`，方便后续前端做排序或低质量结果降权
@@ -144,6 +145,7 @@ python export_search_dataset.py
 - `private_collection` 现在合并了“私人旧藏 / 家族旧藏”这类标签；如果只是“香港私人收藏 / 东南亚华侨旧藏”这类不具名来源，则不会进入 provenance tag
 - 后续前端如果需要做“来源筛选”，优先基于 `provenance_tags`，需要展示细节时再读取 `provenance_raw`
 - 后续前端如果需要做“品相筛选”，优先基于 `condition_tags`
+- 详情页展示建议优先顺序：`mark_text`、`size_raw / height_cm / diameter_cm / aperture_cm`、`condition_raw`、`description`
 - 图片存储层已经预留云端兼容字段：`cloud_image_url`、`cloud_image_dir`、`cloud_storage_key`、`image_storage`
 - 当前图片下载仍然默认写本地；当本地下载成功时，`image_storage` 会标记为 `local`
 - 后续如果做云端同步，建议单独写上传脚本并回填这些字段，而不是改动现有抓取逻辑

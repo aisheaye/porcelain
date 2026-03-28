@@ -664,7 +664,7 @@
 
       <aside class="detail-panel">
         <div class="detail-empty" id="detailEmpty">
-          请选择一条记录。右侧详情会重点展示 `provenance_raw`、`condition_raw` 和整段原始描述，方便你直接判断抽取逻辑是否靠谱。
+          请选择一条记录。右侧详情会重点展示款识、尺寸、品相和整段原始描述，方便你直接判断抽取逻辑是否靠谱。
         </div>
         <div class="detail-card" id="detailCard" style="display:none;"></div>
       </aside>
@@ -713,6 +713,13 @@
 
     function fmtDate(value) {
       return value || "日期待补";
+    }
+
+    function fmtDimension(value) {
+      if (value === null || value === undefined || value === "") return "待补";
+      const num = Number(value);
+      if (!Number.isFinite(num)) return String(value);
+      return `${num.toFixed(1)} cm`;
     }
 
     function escapeHtml(value) {
@@ -1009,8 +1016,8 @@
         return;
       }
 
-      empty.style.display = "none";
       card.style.display = "grid";
+      empty.style.display = "none";
       card.innerHTML = `
         <div>
           <div class="eyebrow">Selected Record</div>
@@ -1026,20 +1033,23 @@
           ${metric("器型", record.vessel_type)}
           ${metric("釉色", Array.isArray(record.glaze_color) ? record.glaze_color.join(" · ") : record.glaze_color)}
           ${metric("纹饰", record.motif)}
+          ${metric("高", fmtDimension(record.height_cm))}
+          ${metric("直径", fmtDimension(record.diameter_cm))}
+          ${metric("口径", fmtDimension(record.aperture_cm))}
           ${metric("成交价", fmtPrice(record.sold_price))}
           ${metric("日期", fmtDate(record.normalized_auction_date))}
           ${metric("拍卖行", record.auction_house)}
-          ${metric("质量分", record.quality_score)}
+          ${metric("完整度", record.quality_score)}
         </div>
 
         <div class="field-block">
-          <h4>来源原文</h4>
-          <p>${escapeHtml(record.provenance_raw || "未抽到来源文本")}</p>
+          <h4>款识</h4>
+          <p>${escapeHtml(record.mark_text || "未抽到款识")}</p>
         </div>
 
         <div class="field-block">
-          <h4>来源实体</h4>
-          <p>${escapeHtml(record.provenance_entities.join(" · ") || "未抽到来源实体")}</p>
+          <h4>尺寸</h4>
+          <p>${escapeHtml(record.size_raw || record.size || "未录入尺寸")}</p>
         </div>
 
         <div class="field-block">
