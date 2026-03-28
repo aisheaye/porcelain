@@ -703,6 +703,26 @@
       selectedId: null
     };
 
+    const CLEAN_PROVENANCE_LABELS = {
+      private_collection: "旧藏",
+      institution_stock: "库出",
+      estate_collection: "遗藏",
+      important_collector: "重要藏家",
+      museum_collection: "博物馆",
+      auction_history: "拍卖纪录",
+      published: "著录",
+      exhibited: "展览"
+    };
+
+    const CLEAN_CONDITION_LABELS = {
+      excellent: "近全品",
+      good: "品相良好",
+      minor_wear: "轻微磨损",
+      chip: "飞皮缺口",
+      crack: "冲线裂纹",
+      restored: "修复件"
+    };
+
     function fmtPrice(value) {
       if (value === null || value === undefined || value === "") return "未录入";
       const num = Number(value);
@@ -732,8 +752,8 @@
     }
 
     function labelTag(type, tag) {
-      if (type === "provenance") return PROVENANCE_LABELS[tag] || tag;
-      if (type === "condition") return CONDITION_LABELS[tag] || tag;
+      if (type === "provenance") return CLEAN_PROVENANCE_LABELS[tag] || tag;
+      if (type === "condition") return CLEAN_CONDITION_LABELS[tag] || tag;
       return tag;
     }
 
