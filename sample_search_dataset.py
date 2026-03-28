@@ -39,9 +39,16 @@ SECTIONS = {
         ORDER BY quality_score ASC, normalized_auction_date DESC, artron_id
         LIMIT ?
     """,
+    "provenance": """
+        SELECT artron_id, search_title, provenance_raw, provenance_tags, provenance_entities
+        FROM search_records_ready
+        WHERE provenance_raw IS NOT NULL
+        ORDER BY quality_score DESC, normalized_auction_date DESC, artron_id
+        LIMIT ?
+    """,
 }
 
-DEFAULT_SECTIONS = ["excluded", "top_ready", "missing_dynasty", "missing_features"]
+DEFAULT_SECTIONS = ["excluded", "top_ready", "missing_dynasty", "missing_features", "provenance"]
 
 
 def parse_args():

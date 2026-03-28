@@ -123,8 +123,15 @@ python build_search_dataset.py
 - 规范 `auction_date` 为 `YYYY-MM-DD`
 - 归一化 `dynasty`
 - 从标题/描述中补充 `vessel_type`、`glaze_color`、`motif`
+- 结构化 `provenance`，生成可搜索的来源标签和实体名
 - 标记明显不适合进入搜索结果的记录，而不是删除原始数据
 - 生成 `quality_score`，方便后续前端做排序或低质量结果降权
+
+注意：
+
+- 资料类 / 图录 / 书籍类记录只在搜索清洗层排除，不会从 `auction_records` 原始抓取表删除
+- `search_records` 会保留 `provenance_raw`、`provenance_tags`、`provenance_entities`
+- 后续前端如果需要做“来源筛选”，优先基于 `provenance_tags`，需要展示细节时再读取 `provenance_raw`
 
 建议节奏：
 
@@ -146,6 +153,7 @@ python sample_search_dataset.py
 - `top_ready`：可搜索结果里质量分较高的记录
 - `missing_dynasty`：朝代仍缺失的记录
 - `missing_features`：器型 / 釉色 / 纹饰仍缺失的记录
+- `provenance`：已经抽出来源信息的记录
 
 常用参数：
 

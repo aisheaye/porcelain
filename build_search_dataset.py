@@ -69,6 +69,12 @@ REFERENCE_KEYWORDS = [
     "图录",
     "拍卖图录",
     "瓷器史",
+    "瓷器鉴定",
+    "鉴定",
+    "中国陶瓷",
+    "陶瓷史",
+    "全集",
+    "文集",
     "原版",
     "精装",
     "毛装",
@@ -111,6 +117,44 @@ CERAMIC_KEYWORDS = [
     "洗",
     "杯",
     "盏",
+]
+
+PROVENANCE_TAG_RULES = [
+    ("museum_collection", ["博物馆收藏", "博物馆旧藏", "馆藏"]),
+    ("family_collection", ["家族旧藏", "家族珍藏"]),
+    ("private_collection", ["私人收藏", "私人旧藏", "藏家旧藏", "旧藏"]),
+    ("estate_collection", ["遗产", "遗藏"]),
+    ("important_collector", ["玫茵堂", "戴维德", "E&J FRANKEL", "Frankel", "Bluett", "J.J. Lally", "Eskenazi"]),
+    ("auction_history", ["佳士得", "苏富比", "嘉德", "保利", "西泠", "匡时"]),
+    ("published", ["著录", "出版", "图录"]),
+    ("exhibited", ["展览", "展出"]),
+]
+
+PROVENANCE_ENTITY_PATTERNS = [
+    r"([A-Z][A-Za-z&.\- ]{2,40}(?:Collection|collection|Family|family|Foundation|Gallery)?)",
+    r"([\u4e00-\u9fff]{2,20}(?:旧藏|收藏|家族|博物馆|文物公司|基金会))",
+]
+
+PROVENANCE_SIGNAL_KEYWORDS = [
+    "来源",
+    "旧藏",
+    "收藏",
+    "递藏",
+    "珍藏",
+    "藏家",
+    "博物馆",
+    "文物公司",
+    "佳士得",
+    "苏富比",
+    "嘉德",
+    "保利",
+]
+
+PROVENANCE_NOISE_PATTERNS = [
+    r"极具陈设与收藏",
+    r"因此在收藏",
+    r"有很高的收藏",
+    r"颇为精致",
 ]
 
 
@@ -167,9 +211,56 @@ def classify_record(name, description):
         return 1, "non_porcelain_art"
     if contains_any(name, REFERENCE_KEYWORDS):
         return 1, "reference_material"
+    if "《" in (name or "") and contains_any(name, REFERENCE_KEYWORDS):
+        return 1, "reference_material"
+    if re.search(r"[上中下]册|全\d+册|套装|全套", name or ""):
+        return 1, "reference_material"
     if not contains_any(name, CERAMIC_KEYWORDS) and contains_any(description, REFERENCE_KEYWORDS):
         return 1, "reference_material"
     return 0, None
+
+
+def normalize_provenance(value, description):
+    text = clean_text(value) or ""
+    if not text and description:
+        match = re.search(r"(?:来源|旧藏|收藏|递藏|备注)[：:\s]*([^。；;\n]{4,200})", description)
+        text = clean_text(match.group(1)) if match else None
+    text = clean_text(text)
+    if not text:
+        return None
+    if any(re.search(pattern, text) for pattern in PROVENANCE_NOISE_PATTERNS):
+        return None
+    if not contains_any(text, PROVENANCE_SIGNAL_KEYWORDS):
+        return None
+    return text
+
+
+def derive_provenance_tags(text):
+    if not text:
+        return None
+    tags = []
+    for tag, keywords in PROVENANCE_TAG_RULES:
+        if contains_any(text, keywords):
+            tags.append(tag)
+    return "|".join(dict.fromkeys(tags)) or None
+
+
+def derive_provenance_entities(text):
+    if not text:
+        return None
+    found = []
+    for pattern in PROVENANCE_ENTITY_PATTERNS:
+        for match in re.findall(pattern, text):
+            item = clean_text(match)
+            if not item:
+                continue
+            if len(item) < 3:
+                continue
+            if not contains_any(item, PROVENANCE_SIGNAL_KEYWORDS) and not re.search(r"[A-Z]", item):
+                continue
+            found.append(item)
+    deduped = list(dict.fromkeys(found))
+    return "|".join(deduped[:8]) or None
 
 
 def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif):
@@ -184,6 +275,8 @@ def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_c
         score += 2
     if row["sold_price"] is not None:
         score += 1
+    if row["provenance"]:
+        score += 2
     description = row["description"] or ""
     if len(description) >= 20:
         score += 1
@@ -214,6 +307,9 @@ def init_search_table(conn):
             vessel_type TEXT,
             glaze_color TEXT,
             motif TEXT,
+            provenance_raw TEXT,
+            provenance_tags TEXT,
+            provenance_entities TEXT,
             image_url TEXT,
             source_url TEXT,
             keyword TEXT,
@@ -227,6 +323,7 @@ def init_search_table(conn):
         CREATE INDEX idx_search_records_dynasty ON search_records(normalized_dynasty);
         CREATE INDEX idx_search_records_date ON search_records(normalized_auction_date);
         CREATE INDEX idx_search_records_price ON search_records(sold_price);
+        CREATE INDEX idx_search_records_prov_tags ON search_records(provenance_tags);
 
         CREATE VIEW search_records_ready AS
         SELECT *
@@ -241,7 +338,7 @@ def rebuild_search_dataset(conn):
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         """
-        SELECT artron_id, name, dynasty, description, vessel_type, glaze_color, motif,
+        SELECT artron_id, name, dynasty, description, provenance, vessel_type, glaze_color, motif,
                auction_date, lot_number, sold_price, image_url, source_url, keyword
         FROM auction_records
         WHERE detail_status='done'
@@ -260,6 +357,9 @@ def rebuild_search_dataset(conn):
         vessel_type = clean_text(row["vessel_type"]) or first_match(lookup_texts, VESSEL_TYPES)
         glaze_color = clean_text(row["glaze_color"]) or first_match(lookup_texts, GLAZE_TERMS)
         motif = clean_text(row["motif"]) or first_match(lookup_texts, MOTIF_TERMS)
+        provenance_raw = normalize_provenance(row["provenance"], row["description"])
+        provenance_tags = derive_provenance_tags(provenance_raw)
+        provenance_entities = derive_provenance_entities(provenance_raw)
 
         is_excluded, exclusion_reason = classify_record(row["name"], row["description"])
         score = quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif)
@@ -278,6 +378,9 @@ def rebuild_search_dataset(conn):
                 vessel_type,
                 glaze_color,
                 motif,
+                provenance_raw,
+                provenance_tags,
+                provenance_entities,
                 clean_text(row["image_url"]),
                 clean_text(row["source_url"]),
                 clean_text(row["keyword"]),
@@ -292,9 +395,10 @@ def rebuild_search_dataset(conn):
         INSERT INTO search_records (
             artron_id, raw_name, search_title, normalized_dynasty, normalized_auction_date,
             auction_year, lot_number, sold_price, vessel_type, glaze_color, motif,
+            provenance_raw, provenance_tags, provenance_entities,
             image_url, source_url, keyword, quality_score, is_excluded, exclusion_reason
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )
@@ -308,6 +412,8 @@ def rebuild_search_dataset(conn):
         "with_dynasty": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE normalized_dynasty IS NOT NULL").fetchone()[0],
         "with_date": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE normalized_auction_date IS NOT NULL").fetchone()[0],
         "with_image": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE image_url IS NOT NULL").fetchone()[0],
+        "with_provenance": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE provenance_raw IS NOT NULL").fetchone()[0],
+        "with_provenance_tags": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE provenance_tags IS NOT NULL").fetchone()[0],
     }
     return stats
 
