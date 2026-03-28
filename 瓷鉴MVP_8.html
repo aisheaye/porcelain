@@ -622,6 +622,14 @@
             <select id="dynastyFilter" class="filter-select"></select>
           </div>
           <div class="filter-group">
+            <label for="reignFilter">年号</label>
+            <select id="reignFilter" class="filter-select"></select>
+          </div>
+          <div class="filter-group">
+            <label for="decorationFilter">彩绘工艺</label>
+            <select id="decorationFilter" class="filter-select"></select>
+          </div>
+          <div class="filter-group">
             <label for="vesselFilter">器型</label>
             <select id="vesselFilter" class="filter-select"></select>
           </div>
@@ -720,6 +728,22 @@
       restored: "修复件"
     };
 
+    const DISPLAY_PROVENANCE_LABELS = {
+      household_release: "户出",
+      institution_stock: "库出",
+      important_collector: "重要藏家",
+      museum_collection: "博物馆",
+      auction_history: "拍卖纪录"
+    };
+
+    const DISPLAY_CONDITION_LABELS = {
+      "全品 / 品相良好": "全品 / 品相良好",
+      "飞皮 / 缺口 / 磕口": "飞皮 / 缺口 / 磕口",
+      "冲线 / 裂": "冲线 / 裂",
+      "修复 / 补配 / 粘修": "修复 / 补配 / 粘修",
+      "磨损 / 失釉": "磨损 / 失釉"
+    };
+
     function fmtPrice(value) {
       if (value === null || value === undefined || value === "") return "未录入";
       const num = Number(value);
@@ -749,8 +773,8 @@
     }
 
     function labelTag(type, tag) {
-      if (type === "provenance") return CLEAN_PROVENANCE_LABELS[tag] || tag;
-      if (type === "condition") return CLEAN_CONDITION_LABELS[tag] || tag;
+      if (type === "provenance") return DISPLAY_PROVENANCE_LABELS[tag] || tag;
+      if (type === "condition") return DISPLAY_CONDITION_LABELS[tag] || tag;
       return tag;
     }
 
@@ -1057,6 +1081,269 @@
           ${metric("日期", fmtDate(record.normalized_auction_date))}
           ${metric("拍卖行", record.auction_house)}
           ${metric("完整度", record.quality_score)}
+        </div>
+
+        <div class="field-block">
+          <h4>款识</h4>
+          <p>${escapeHtml(record.mark_text || "未抽到款识")}</p>
+        </div>
+
+        <div class="field-block">
+          <h4>尺寸</h4>
+          <p>${escapeHtml(record.size_raw || record.size || "未录入尺寸")}</p>
+        </div>
+
+        <div class="field-block">
+          <h4>品相原文</h4>
+          <p>${escapeHtml(record.condition_raw || "未抽到品相文本")}</p>
+        </div>
+
+        <div class="field-block">
+          <h4>原始描述</h4>
+          <p>${escapeHtml(record.description || "暂无描述")}</p>
+        </div>
+      `;
+    }
+
+    function renderHero(dataset) {
+      const stats = dataset.stats || {};
+      const hero = document.getElementById("heroStats");
+      hero.innerHTML = [
+        heroStat("可搜索记录", dataset.record_count || 0),
+        heroStat("年号类型", Object.keys(stats.reign_periods || {}).length),
+        heroStat("传承类型", Object.keys(stats.provenance_tags || {}).length),
+        heroStat("品相层级", Object.keys(stats.condition_tags || {}).length)
+      ].join("");
+    }
+
+    function buildFilterOptions(dataset) {
+      const stats = dataset.stats || {};
+      const dynasties = Object.keys(stats.dynasties || {}).sort((a, b) => (stats.dynasties[b] || 0) - (stats.dynasties[a] || 0));
+      const reigns = Object.keys(stats.reign_periods || {}).sort((a, b) => (stats.reign_periods[b] || 0) - (stats.reign_periods[a] || 0));
+      const decorations = Object.keys(stats.painted_decorations || {}).sort((a, b) => (stats.painted_decorations[b] || 0) - (stats.painted_decorations[a] || 0));
+      const vessels = Object.keys(stats.vessel_types || {}).sort((a, b) => (stats.vessel_types[b] || 0) - (stats.vessel_types[a] || 0));
+      const provenanceTags = Object.keys(stats.provenance_tags || {}).sort((a, b) => (stats.provenance_tags[b] || 0) - (stats.provenance_tags[a] || 0)).map(tag => `${labelTag("provenance", tag)} (${tag})`);
+      const conditionTags = Object.keys(stats.condition_tags || {}).sort((a, b) => (stats.condition_tags[a] || 0) - (stats.condition_tags[b] || 0)).map(tag => `${labelTag("condition", tag)} (${tag})`);
+
+      buildSelect("dynastyFilter", dynasties, "全部朝代");
+      buildSelect("reignFilter", reigns, "全部年号");
+      buildSelect("decorationFilter", decorations, "全部彩绘工艺");
+      buildSelect("vesselFilter", vessels, "全部器型");
+      buildSelect("provenanceFilter", provenanceTags, "全部传承");
+      buildSelect("conditionFilter", conditionTags, "全部品相");
+    }
+
+    function bindEvents() {
+      document.getElementById("searchBtn").addEventListener("click", applyFilters);
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        ["queryInput", "dynastyFilter", "reignFilter", "decorationFilter", "vesselFilter", "provenanceFilter", "conditionFilter"].forEach(id => {
+          document.getElementById(id).value = "";
+        });
+        document.getElementById("sortSelect").value = "relevance";
+        applyFilters();
+      });
+
+      ["queryInput", "dynastyFilter", "reignFilter", "decorationFilter", "vesselFilter", "provenanceFilter", "conditionFilter", "sortSelect"].forEach(id => {
+        const el = document.getElementById(id);
+        const eventName = id === "queryInput" ? "keydown" : "change";
+        el.addEventListener(eventName, ev => {
+          if (eventName === "keydown" && ev.key !== "Enter") return;
+          applyFilters();
+        });
+      });
+    }
+
+    function extractTagValue(rawValue) {
+      const match = (rawValue || "").match(/\(([^)]+)\)$/);
+      return match ? match[1] : rawValue;
+    }
+
+    function matchesFilters(record, filters) {
+      if (filters.dynasty && record.normalized_dynasty !== filters.dynasty) return false;
+      if (filters.reign && record.reign_period !== filters.reign) return false;
+      if (filters.decoration && !(record.painted_decoration || []).includes(filters.decoration)) return false;
+      if (filters.vessel && record.vessel_type !== filters.vessel) return false;
+      if (filters.provenance && extractTagValue(filters.provenance) !== record.provenance_category) return false;
+      if (filters.condition && extractTagValue(filters.condition) !== record.condition_rank) return false;
+      return true;
+    }
+
+    function scoreRecord(record, tokens) {
+      if (tokens.length === 0) return record.quality_score || 0;
+      const haystack = [
+        record.search_title,
+        record.raw_name,
+        record.normalized_dynasty,
+        record.reign_period,
+        record.kiln,
+        record.base_glaze,
+        record.base_glaze_subtype,
+        (record.painted_decoration || []).join(" "),
+        record.non_painted_decoration,
+        record.vessel_category,
+        record.vessel_type,
+        record.motif,
+        record.provenance_category,
+        record.condition_rank,
+        record.mark_text,
+        record.description,
+        record.keyword
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      let score = record.quality_score || 0;
+      tokens.forEach(token => {
+        if (haystack.includes(token)) score += 6;
+        if ((record.search_title || "").toLowerCase().includes(token)) score += 10;
+        if ((record.reign_period || "").toLowerCase().includes(token)) score += 6;
+        if (((record.painted_decoration || []).join(" ")).toLowerCase().includes(token)) score += 5;
+      });
+      return score;
+    }
+
+    function applyFilters() {
+      const query = document.getElementById("queryInput").value.trim().toLowerCase();
+      const filters = {
+        dynasty: document.getElementById("dynastyFilter").value,
+        reign: document.getElementById("reignFilter").value,
+        decoration: document.getElementById("decorationFilter").value,
+        vessel: document.getElementById("vesselFilter").value,
+        provenance: document.getElementById("provenanceFilter").value,
+        condition: document.getElementById("conditionFilter").value
+      };
+      const sortMode = document.getElementById("sortSelect").value;
+      const tokens = query.split(/\s+/).filter(Boolean);
+
+      const scored = state.records
+        .filter(record => matchesFilters(record, filters))
+        .map(record => ({ record, score: scoreRecord(record, tokens) }))
+        .filter(entry => tokens.length === 0 || entry.score > (entry.record.quality_score || 0));
+
+      state.filtered = sortRecords(scored, sortMode).map(item => item.record);
+      state.selectedId = state.filtered[0] ? state.filtered[0].artron_id : null;
+
+      renderSummary(filters, query);
+      renderResults();
+      renderDetail();
+    }
+
+    function renderSummary(filters, query) {
+      const status = document.getElementById("resultsStatus");
+      const mini = document.getElementById("miniSummary");
+      const count = state.filtered.length;
+      const withReign = state.filtered.filter(item => item.reign_period).length;
+      const withTaxonomy = state.filtered.filter(item => item.painted_decoration?.length || item.vessel_type || item.provenance_category || item.condition_rank).length;
+
+      status.textContent = `当前结果 ${count} 条。现在更适合直接 review taxonomy，而不是只看原始描述。`;
+      mini.innerHTML = `
+        <strong>当前筛选</strong><br>
+        检索词：${escapeHtml(query || "未输入")}<br>
+        朝代：${escapeHtml(filters.dynasty || "全部")}<br>
+        年号：${escapeHtml(filters.reign || "全部")}<br>
+        彩绘：${escapeHtml(filters.decoration || "全部")}<br>
+        年号命中：${withReign} 条<br>
+        taxonomy 覆盖：${withTaxonomy} 条
+      `;
+    }
+
+    function cardChips(record) {
+      const chips = [];
+      if (record.normalized_dynasty) chips.push(`<span class="chip">${escapeHtml(record.normalized_dynasty)}</span>`);
+      if (record.reign_period) chips.push(`<span class="chip accent">${escapeHtml(record.reign_period)}</span>`);
+      if (record.vessel_category) chips.push(`<span class="chip">${escapeHtml(record.vessel_category)}</span>`);
+      if (record.vessel_type) chips.push(`<span class="chip">${escapeHtml(record.vessel_type)}</span>`);
+      (record.painted_decoration || []).forEach(tag => chips.push(`<span class="chip">${escapeHtml(tag)}</span>`));
+      if (record.provenance_category) chips.push(`<span class="chip gold">${escapeHtml(labelTag("provenance", record.provenance_category))}</span>`);
+      if (record.condition_rank) chips.push(`<span class="chip jade">${escapeHtml(labelTag("condition", record.condition_rank))}</span>`);
+      return chips.join("");
+    }
+
+    function renderResults() {
+      const grid = document.getElementById("resultsGrid");
+      const empty = document.getElementById("emptyState");
+      grid.innerHTML = "";
+
+      if (state.filtered.length === 0) {
+        empty.style.display = "block";
+        empty.textContent = "没有命中结果。可以先放宽年号、彩绘工艺、传承或品相筛选。";
+        return;
+      }
+
+      empty.style.display = "none";
+      state.filtered.forEach(record => {
+        const card = document.createElement("article");
+        card.className = "record-card" + (record.artron_id === state.selectedId ? " active" : "");
+        card.addEventListener("click", () => {
+          state.selectedId = record.artron_id;
+          renderResults();
+          renderDetail();
+        });
+
+        const imageSrc = record.preferred_image_url || record.image_url;
+        const thumb = imageSrc
+          ? `<img src="${escapeHtml(imageSrc)}" alt="${escapeHtml(record.search_title)}" loading="lazy" onerror="this.outerHTML='<div class=&quot;thumb-fallback&quot;>瓷</div>'">`
+          : `<div class="thumb-fallback">瓷</div>`;
+
+        const price = fmtPrice(record.sold_price);
+        card.innerHTML = `
+          ${thumb}
+          <div>
+            <h3 class="record-title">${escapeHtml(record.search_title || record.raw_name || "未命名拍品")}</h3>
+            <div class="chip-row">${cardChips(record)}</div>
+            <div class="snippet">${escapeHtml(snippet(record.description))}</div>
+          </div>
+          <div class="price-box">
+            <div>
+              <div class="price-label">成交价</div>
+              <div class="price-value">${escapeHtml(price)}</div>
+            </div>
+            <div class="price-date">${escapeHtml(fmtDate(record.normalized_auction_date))}<br>${escapeHtml(record.auction_house || "拍卖行待补")}</div>
+            <a class="jump-link" href="${escapeHtml(record.source_url || "#")}" target="_blank" rel="noreferrer">查看原始页面</a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderDetail() {
+      const card = document.getElementById("detailCard");
+      const empty = document.getElementById("detailEmpty");
+      const record = state.filtered.find(item => item.artron_id === state.selectedId);
+
+      if (!record) {
+        card.style.display = "none";
+        empty.style.display = "block";
+        return;
+      }
+
+      card.style.display = "grid";
+      empty.style.display = "none";
+      card.innerHTML = `
+        <div>
+          <div class="eyebrow">Selected Record</div>
+          <h3>${escapeHtml(record.search_title || record.raw_name)}</h3>
+        </div>
+
+        <div class="chip-row">
+          ${cardChips(record)}
+        </div>
+
+        <div class="detail-grid">
+          ${metric("朝代", record.normalized_dynasty)}
+          ${metric("年号", record.reign_period)}
+          ${metric("窑口", record.kiln)}
+          ${metric("底釉", record.base_glaze)}
+          ${metric("底釉细分", record.base_glaze_subtype)}
+          ${metric("彩绘工艺", (record.painted_decoration || []).join(" · "))}
+          ${metric("非彩绘装饰", record.non_painted_decoration)}
+          ${metric("造型细分", record.vessel_category)}
+          ${metric("器型细分", record.vessel_type)}
+          ${metric("纹饰", record.motif)}
+          ${metric("传承", labelTag("provenance", record.provenance_category))}
+          ${metric("品相", labelTag("condition", record.condition_rank))}
+          ${metric("高", fmtDimension(record.height_cm))}
+          ${metric("直径", fmtDimension(record.diameter_cm))}
+          ${metric("口径", fmtDimension(record.aperture_cm))}
+          ${metric("成交价", fmtPrice(record.sold_price))}
         </div>
 
         <div class="field-block">
