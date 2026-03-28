@@ -144,6 +144,9 @@ python export_search_dataset.py
 - `private_collection` 现在合并了“私人旧藏 / 家族旧藏”这类标签；如果只是“香港私人收藏 / 东南亚华侨旧藏”这类不具名来源，则不会进入 provenance tag
 - 后续前端如果需要做“来源筛选”，优先基于 `provenance_tags`，需要展示细节时再读取 `provenance_raw`
 - 后续前端如果需要做“品相筛选”，优先基于 `condition_tags`
+- 图片存储层已经预留云端兼容字段：`cloud_image_url`、`cloud_image_dir`、`cloud_storage_key`、`image_storage`
+- 当前图片下载仍然默认写本地；当本地下载成功时，`image_storage` 会标记为 `local`
+- 后续如果做云端同步，建议单独写上传脚本并回填这些字段，而不是改动现有抓取逻辑
 
 建议节奏：
 

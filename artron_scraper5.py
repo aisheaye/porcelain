@@ -142,6 +142,10 @@ def init_db(conn):
             image_urls TEXT,
             local_image_path TEXT,
             local_image_dir TEXT,
+            cloud_image_url TEXT,
+            cloud_image_dir TEXT,
+            cloud_storage_key TEXT,
+            image_storage TEXT,
             image_downloaded_count INTEGER DEFAULT 0,
             source_url TEXT,
             keyword TEXT,
@@ -189,6 +193,10 @@ def init_db(conn):
         [
             ("image_urls", "image_urls TEXT"),
             ("local_image_dir", "local_image_dir TEXT"),
+            ("cloud_image_url", "cloud_image_url TEXT"),
+            ("cloud_image_dir", "cloud_image_dir TEXT"),
+            ("cloud_storage_key", "cloud_storage_key TEXT"),
+            ("image_storage", "image_storage TEXT"),
             ("image_downloaded_count", "image_downloaded_count INTEGER DEFAULT 0"),
             ("is_ming_qing", "is_ming_qing INTEGER"),
             ("detail_status", "detail_status TEXT DEFAULT 'pending'"),
@@ -752,13 +760,30 @@ def update_image_status(conn, artron_id, local_path, local_dir, count, success, 
         UPDATE auction_records
         SET local_image_path=COALESCE(?, local_image_path),
             local_image_dir=COALESCE(?, local_image_dir),
+            image_storage=CASE
+                WHEN ? IS NOT NULL OR ? IS NOT NULL THEN
+                    CASE
+                        WHEN cloud_image_url IS NOT NULL THEN 'both'
+                        ELSE 'local'
+                    END
+                ELSE image_storage
+            END,
             image_downloaded_count=?,
             image_status=?,
             image_updated_at=datetime('now'),
             last_error=?
         WHERE artron_id=?
         """,
-        (local_path, local_dir, count, "done" if success else "error", None if success else str(error)[:500], artron_id),
+        (
+            local_path,
+            local_dir,
+            local_path,
+            local_dir,
+            count,
+            "done" if success else "error",
+            None if success else str(error)[:500],
+            artron_id,
+        ),
     )
     conn.commit()
 
