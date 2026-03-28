@@ -110,6 +110,7 @@ CERAMIC_KEYWORDS = ["瓷", "瓷器", "窑", "釉", "盘", "碗", "瓶", "罐", "
 
 PROVENANCE_TAG_RULES = [
     ("museum_collection", ["博物馆收藏", "博物馆旧藏", "馆藏"]),
+    ("institution_stock", ["文物公司旧藏", "文物公司库出", "公司旧藏", "公司库出", "库出"]),
     ("private_collection", ["私人收藏", "私人旧藏", "家族旧藏", "家族珍藏", "藏家旧藏", "旧藏"]),
     ("estate_collection", ["遗产", "遗藏"]),
     ("important_collector", ["玫茵堂", "戴维德", "E&J FRANKEL", "Frankel", "Bluett", "J.J. Lally", "Eskenazi"]),

@@ -143,6 +143,7 @@ python export_search_dataset.py
 - `search_records` 会保留 `provenance_raw`、`provenance_tags`、`provenance_entities`
 - `auction_records` 会保留 `condition_info`，`search_records` 会保留 `condition_raw`、`condition_tags`
 - `private_collection` 现在合并了“私人旧藏 / 家族旧藏”这类标签；如果只是“香港私人收藏 / 东南亚华侨旧藏”这类不具名来源，则不会进入 provenance tag
+- `institution_stock` 用于“天津文物公司旧藏 / 北京文物公司库出”这类文物公司旧藏、库出来源，前端可直接展示为“库出”
 - 后续前端如果需要做“来源筛选”，优先基于 `provenance_tags`，需要展示细节时再读取 `provenance_raw`
 - 后续前端如果需要做“品相筛选”，优先基于 `condition_tags`
 - 详情页展示建议优先顺序：`mark_text`、`size_raw / height_cm / diameter_cm / aperture_cm`、`condition_raw`、`description`
