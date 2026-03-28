@@ -157,12 +157,28 @@ PROVENANCE_NOISE_PATTERNS = [
     r"颇为精致",
 ]
 
+CONDITION_TAG_RULES = [
+    ("excellent", ["品相完美", "品相如新", "保存极佳", "全品", "完好如初"]),
+    ("good", ["品相良好", "保存良好", "品相完好", "品相较好"]),
+    ("minor_wear", ["轻微磨损", "轻微失粘", "轻微磕碰", "轻微瑕疵", "小飞皮"]),
+    ("restored", ["修复", "补配", "后配", "粘修", "冲线修", "复烧"]),
+    ("chip", ["磕", "崩", "飞皮", "小缺", "缺口"]),
+    ("crack", ["冲线", "裂", "鸡爪纹", "惊釉"]),
+]
+
 
 def clean_text(value):
     if value is None:
         return None
     value = re.sub(r"\s+", " ", str(value)).strip()
     return value or None
+
+
+def ensure_column(conn, table, name, ddl):
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if name not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+        conn.commit()
 
 
 def contains_any(text: str | None, keywords: Iterable[str]) -> bool:
@@ -263,6 +279,31 @@ def derive_provenance_entities(text):
     return "|".join(deduped[:8]) or None
 
 
+def normalize_condition(value, description):
+    signal_terms = ["品相", "瑕疵", "保存", "全品", "修复", "冲线", "磕碰", "飞皮"]
+    text = clean_text(value) or ""
+    if not text and description:
+        match = re.search(r"(?:品相|品相报告|保存状况|瑕疵|有无瑕疵)[：:\s]*([^。；;\n]{4,200})", description)
+        text = clean_text(match.group(1)) if match else None
+    if text:
+        text = re.split(r"(?:来源|说明|【来源】|【说明】|备注)[:：\s]*", text)[0]
+        text = re.sub(r"^[】\]\s:：]+", "", text)
+    text = clean_text(text)
+    if text and any(term in text for term in signal_terms):
+        return text
+    return None
+
+
+def derive_condition_tags(text):
+    if not text:
+        return None
+    tags = []
+    for tag, keywords in CONDITION_TAG_RULES:
+        if contains_any(text, keywords):
+            tags.append(tag)
+    return "|".join(dict.fromkeys(tags)) or None
+
+
 def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif):
     score = 0
     if row["name"]:
@@ -290,6 +331,7 @@ def quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_c
 
 
 def init_search_table(conn):
+    ensure_column(conn, "auction_records", "condition_info", "condition_info TEXT")
     conn.executescript(
         """
         DROP VIEW IF EXISTS search_records_ready;
@@ -310,6 +352,8 @@ def init_search_table(conn):
             provenance_raw TEXT,
             provenance_tags TEXT,
             provenance_entities TEXT,
+            condition_raw TEXT,
+            condition_tags TEXT,
             image_url TEXT,
             source_url TEXT,
             keyword TEXT,
@@ -324,6 +368,7 @@ def init_search_table(conn):
         CREATE INDEX idx_search_records_date ON search_records(normalized_auction_date);
         CREATE INDEX idx_search_records_price ON search_records(sold_price);
         CREATE INDEX idx_search_records_prov_tags ON search_records(provenance_tags);
+        CREATE INDEX idx_search_records_condition_tags ON search_records(condition_tags);
 
         CREATE VIEW search_records_ready AS
         SELECT *
@@ -338,7 +383,7 @@ def rebuild_search_dataset(conn):
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         """
-        SELECT artron_id, name, dynasty, description, provenance, vessel_type, glaze_color, motif,
+        SELECT artron_id, name, dynasty, description, provenance, condition_info, vessel_type, glaze_color, motif,
                auction_date, lot_number, sold_price, image_url, source_url, keyword
         FROM auction_records
         WHERE detail_status='done'
@@ -360,6 +405,8 @@ def rebuild_search_dataset(conn):
         provenance_raw = normalize_provenance(row["provenance"], row["description"])
         provenance_tags = derive_provenance_tags(provenance_raw)
         provenance_entities = derive_provenance_entities(provenance_raw)
+        condition_raw = normalize_condition(row["condition_info"], row["description"])
+        condition_tags = derive_condition_tags(condition_raw)
 
         is_excluded, exclusion_reason = classify_record(row["name"], row["description"])
         score = quality_score(row, normalized_date, normalized_dynasty, vessel_type, glaze_color, motif)
@@ -381,6 +428,8 @@ def rebuild_search_dataset(conn):
                 provenance_raw,
                 provenance_tags,
                 provenance_entities,
+                condition_raw,
+                condition_tags,
                 clean_text(row["image_url"]),
                 clean_text(row["source_url"]),
                 clean_text(row["keyword"]),
@@ -395,10 +444,10 @@ def rebuild_search_dataset(conn):
         INSERT INTO search_records (
             artron_id, raw_name, search_title, normalized_dynasty, normalized_auction_date,
             auction_year, lot_number, sold_price, vessel_type, glaze_color, motif,
-            provenance_raw, provenance_tags, provenance_entities,
+            provenance_raw, provenance_tags, provenance_entities, condition_raw, condition_tags,
             image_url, source_url, keyword, quality_score, is_excluded, exclusion_reason
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )
@@ -414,6 +463,8 @@ def rebuild_search_dataset(conn):
         "with_image": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE image_url IS NOT NULL").fetchone()[0],
         "with_provenance": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE provenance_raw IS NOT NULL").fetchone()[0],
         "with_provenance_tags": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE provenance_tags IS NOT NULL").fetchone()[0],
+        "with_condition": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE condition_raw IS NOT NULL").fetchone()[0],
+        "with_condition_tags": conn.execute("SELECT COUNT(*) FROM search_records_ready WHERE condition_tags IS NOT NULL").fetchone()[0],
     }
     return stats
 

@@ -159,6 +159,7 @@ def init_db(conn):
             motif TEXT,
             publication_info TEXT,
             exhibition_info TEXT,
+            condition_info TEXT,
             created_at TEXT DEFAULT (datetime('now'))
         );
         CREATE TABLE IF NOT EXISTS record_keywords (
@@ -203,6 +204,7 @@ def init_db(conn):
             ("motif", "motif TEXT"),
             ("publication_info", "publication_info TEXT"),
             ("exhibition_info", "exhibition_info TEXT"),
+            ("condition_info", "condition_info TEXT"),
         ],
     )
     conn.executescript(
@@ -440,6 +442,26 @@ def extract_section_text(text, labels):
     return None
 
 
+def extract_condition_text(text):
+    text = clean(text) or ""
+    signal_terms = ["品相", "瑕疵", "保存", "全品", "修复", "冲线", "磕碰", "飞皮"]
+    patterns = [
+        r"(?:品相|品相报告|保存状况|瑕疵|有无瑕疵)[：:\s]*([^。；;\n]{4,300})",
+        r"((?:品相良好|品相完好|品相完美|品相如新|保存良好|无明显瑕疵|有轻微瑕疵)[^。；;\n]{0,120})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            value = clean(m.group(1))
+            if value:
+                value = re.split(r"(?:来源|说明|【来源】|【说明】|备注)[:：\s]*", value)[0]
+                value = re.sub(r"^[】\]\s:：]+", "", value)
+            value = clean(value)
+            if value and any(term in value for term in signal_terms):
+                return value
+    return None
+
+
 def derive_detail_fields(record):
     name = clean(record.get("name")) or ""
     description = clean(record.get("description")) or ""
@@ -451,6 +473,7 @@ def derive_detail_fields(record):
     record["mark_text"] = extract_mark_text(combined)
     record["publication_info"] = extract_section_text(description, ["出版", "著录", "出版著录", "文献著录"])
     record["exhibition_info"] = extract_section_text(description, ["展览", "展出"])
+    record["condition_info"] = extract_condition_text(description)
     return record
 
 
@@ -560,6 +583,7 @@ DETAIL_RECORD_FIELDS = [
     "motif",
     "publication_info",
     "exhibition_info",
+    "condition_info",
 ]
 
 
@@ -578,13 +602,13 @@ def save_detail_record(conn, record):
             auction_house, auction_session, auction_name, auction_date, auction_city, lot_number,
             description, provenance, has_provenance, image_url, image_urls, source_url, keyword,
             is_ming_qing, raw_state_json, mark_text, vessel_type, glaze_color, motif,
-            publication_info, exhibition_info, detail_status, detail_updated_at, last_error
+            publication_info, exhibition_info, condition_info, detail_status, detail_updated_at, last_error
         ) VALUES (
             :artron_id, :name, :dynasty, :size, :category, :estimate_low, :estimate_high, :sold_price, :is_sold,
             :auction_house, :auction_session, :auction_name, :auction_date, :auction_city, :lot_number,
             :description, :provenance, :has_provenance, :image_url, :image_urls, :source_url, :keyword,
             :is_ming_qing, :raw_state_json, :mark_text, :vessel_type, :glaze_color, :motif,
-            :publication_info, :exhibition_info, 'done', datetime('now'), NULL
+            :publication_info, :exhibition_info, :condition_info, 'done', datetime('now'), NULL
         )
         ON CONFLICT(artron_id) DO UPDATE SET
             name=COALESCE(excluded.name, auction_records.name),
@@ -616,6 +640,7 @@ def save_detail_record(conn, record):
             motif=COALESCE(excluded.motif, auction_records.motif),
             publication_info=COALESCE(excluded.publication_info, auction_records.publication_info),
             exhibition_info=COALESCE(excluded.exhibition_info, auction_records.exhibition_info),
+            condition_info=COALESCE(excluded.condition_info, auction_records.condition_info),
             detail_status='done',
             detail_updated_at=datetime('now'),
             last_error=NULL
